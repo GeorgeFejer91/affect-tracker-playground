@@ -27,7 +27,7 @@ import {
 } from "./values.js";
 
 export const REMOTE_STUDY_STATE_PROFILE = "affect-tracker-remote-study-state";
-export const REMOTE_STUDY_COMPANION_URL = "https://GeorgeFejer91.github.io/affect-tracker-web/study-remote.html";
+export const REMOTE_STUDY_COMPANION_URL = "https://GeorgeFejer91.github.io/affect-tracker-playground/study-remote.html";
 export const REMOTE_STUDY_HEARTBEAT_MS = 250;
 export const REMOTE_STUDY_LEASE_RENEWAL_MS = 5_000;
 export const REMOTE_STUDY_QR_KEY_LABELS = Object.freeze({

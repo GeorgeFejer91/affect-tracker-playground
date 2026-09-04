@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/GeorgeFejer91/affect-tracker-web/vr/contracts/affect-tracker-vr-session-v1.schema.json",
+  "$id": "https://github.com/GeorgeFejer91/affect-tracker-playground/vr/contracts/affect-tracker-vr-session-v1.schema.json",
   "title": "Affect Tracker VR session v1",
   "type": "object",
   "additionalProperties": false,

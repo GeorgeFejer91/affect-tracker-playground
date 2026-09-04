@@ -5,7 +5,7 @@ description = "Offline Tauri companion for the Affect Tracker"
 authors = ["George Fejer"]
 edition = "2021"
 license = "BSD-3-Clause"
-repository = "https://github.com/GeorgeFejer91/affect-tracker-web"
+repository = "https://github.com/GeorgeFejer91/affect-tracker-playground"
 
 [lib]
 name = "affect_tracker_desktop"

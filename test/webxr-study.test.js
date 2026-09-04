@@ -241,7 +241,7 @@ test("WebXR Flubber canvas preserves the canonical SVG vertical orientation", ()
 
 test("web and APK launchers expose the hosted experimental WebXR page", () => {
   assert.match(index, /href="\.\/webxr\.html"/);
-  assert.match(launcher, /WEBXR_STUDY_URL = "https:\/\/GeorgeFejer91\.github\.io\/affect-tracker-web\/webxr\.html"/);
+  assert.match(launcher, /WEBXR_STUDY_URL = "https:\/\/GeorgeFejer91\.github\.io\/affect-tracker-playground\/webxr\.html"/);
   assert.match(launcher, /Intent\(Intent\.ACTION_VIEW, Uri\.parse\(WEBXR_STUDY_URL\)\)/);
   assert.match(launcher, /addCategory\(Intent\.CATEGORY_BROWSABLE\)/);
   assert.match(launcher, /Text\("Open WebXR study"\)/);

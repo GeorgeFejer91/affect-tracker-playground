@@ -401,7 +401,7 @@ test("the desktop target refuses to construct a route without an active native r
 
 test("the local QR encoder keeps the production invitation in its verified Version 7 envelope", () => {
   const invitation = createQrInvitation({
-    companionUrl: "https://GeorgeFejer91.github.io/affect-tracker-web/study-remote.html",
+    companionUrl: "https://GeorgeFejer91.github.io/affect-tracker-playground/study-remote.html",
     randomBytes: (length) => Uint8Array.from({ length }, (_, index) => index),
     nowMs: 1_000,
   });
@@ -410,7 +410,7 @@ test("the local QR encoder keeps the production invitation in its verified Versi
   assert.equal(matrix.every((row) => row.length === 45), true);
   assert.equal(
     createHash("sha256").update(JSON.stringify(matrix)).digest("hex"),
-    "2a98c8a70ea83f0c543f8eb90b1eafcfbd0b7b4a145617bb4fc44b347835672b",
+    "354b136e1da27815bd2ef903c203b1db87f0e0da19de174068e27de12bb2c32e",
   );
 });
 

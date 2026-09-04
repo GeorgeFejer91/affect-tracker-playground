@@ -11,7 +11,7 @@ export const QR_INVITATION_TTL_MS = 10 * 60 * 1000;
 export const QR_INVITATION_SECRET_BYTES = 24;
 export const QR_INVITATION_MAX_ACTIVE = 16;
 export const QR_INVITATION_MAX_URL_CHARACTERS = 4096;
-export const REMOTE_STUDY_CANONICAL_COMPANION_URL = "https://georgefejer91.github.io/affect-tracker-web/study-remote.html";
+export const REMOTE_STUDY_CANONICAL_COMPANION_URL = "https://georgefejer91.github.io/affect-tracker-playground/study-remote.html";
 
 const QR_INVITATION_SECRET_CHARACTERS = 32;
 const invalidInvitation = Object.freeze({ ok: false, error: "invitation_invalid" });

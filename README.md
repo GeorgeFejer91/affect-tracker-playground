@@ -1,4 +1,6 @@
-# Affect Tracker: Pages + Desktop + WebXR + Native Quest
+# Affect Tracker Playground: Pages + Desktop + WebXR + Native Quest
+
+> **Frozen feature-rich playground.** This repository preserves the experimental multi-surface application at the annotated `checkpoint-2026-09-03-feature-rich` reproducibility checkpoint. Active research-tool development continues in [`affect-tracker-research`](https://github.com/GeorgeFejer91/affect-tracker-research). No research-readiness, physical-device, or cross-platform qualification claim is attached to this snapshot.
 
 The repository currently contains four Affect Tracker delivery surfaces inspired by [AffectTracker](https://github.com/afourcade/AffectTracker):
 
@@ -9,9 +11,9 @@ The repository currently contains four Affect Tracker delivery surfaces inspired
 
 All surfaces use the same valence/arousal mappings. Web and desktop share the JavaScript Flubber and face-engine adapters directly; native Quest uses an allocation-bounded Flubber port checked against JavaScript golden vectors.
 
-Live site: <https://GeorgeFejer91.github.io/affect-tracker-web/>
+Live site: <https://GeorgeFejer91.github.io/affect-tracker-playground/>
 
-Experimental Meta Quest WebXR study: <https://GeorgeFejer91.github.io/affect-tracker-web/webxr.html>
+Experimental Meta Quest WebXR study: <https://GeorgeFejer91.github.io/affect-tracker-playground/webxr.html>
 
 Desktop source: [`desktop/`](./desktop/) and [`src-tauri/`](./src-tauri/)
 
@@ -202,7 +204,7 @@ See [`desktop/README.md`](./desktop/README.md) for the LSL feature fallback and 
 
 ### Desktop downloads
 
-Cross-platform packages are published on the [GitHub Releases page](https://github.com/GeorgeFejer91/affect-tracker-web/releases). Each desktop release includes:
+Historical cross-platform packages remain on the active lineage's [GitHub Releases page](https://github.com/GeorgeFejer91/affect-tracker-research/releases). Each desktop release includes:
 
 - Windows x64 NSIS installer (`.exe`).
 - Linux x64 AppImage and Debian package (`.AppImage` and `.deb`).

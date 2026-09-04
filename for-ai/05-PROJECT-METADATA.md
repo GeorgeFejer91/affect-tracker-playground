@@ -2,13 +2,15 @@
 
 ## Canonical identity
 
-- Project: **Affect Tracker**
-- Canonical repository: <https://github.com/GeorgeFejer91/affect-tracker-web>
-- Public web application: <https://GeorgeFejer91.github.io/affect-tracker-web/>
+- Project: **Affect Tracker Playground**
+- Canonical repository: <https://github.com/GeorgeFejer91/affect-tracker-playground>
+- Public web application: <https://GeorgeFejer91.github.io/affect-tracker-playground/>
 - Primary branch: `main`
 - License: BSD-3-Clause
 - Origin attribution: [`afourcade/AffectTracker`](https://github.com/afourcade/AffectTracker)
-- Canonical Windows working clone: `C:\Users\Georgeous\Documents\GitHub\affect-tracker-web`
+- Canonical Windows working clone: `C:\Users\Georgeous\Documents\GitHub\affect-tracker-playground`
+
+This repository is the frozen feature-rich lineage. The exact reproducibility tree is bound by `checkpoint-2026-09-03-feature-rich`; `main` differs only by repository-relocation metadata and URL updates. Active minimal research-tool development belongs to [`affect-tracker-research`](https://github.com/GeorgeFejer91/affect-tracker-research).
 
 The Git repository root is the central project folder. Do not create a second independent "master" copy. On another machine or after a workspace move, discover the canonical local root with `git rev-parse --show-toplevel`; the absolute Windows path above is informational, not a portable configuration value.
 

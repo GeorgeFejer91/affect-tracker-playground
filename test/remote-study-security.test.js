@@ -107,7 +107,7 @@ test("the public controller pins its production origin and path with only a loop
     href: "https://attacker.test/copied/study-remote.html#secret",
   }), {
     expectedOrigin: "https://georgefejer91.github.io",
-    expectedPathname: "/affect-tracker-web/study-remote.html",
+    expectedPathname: "/affect-tracker-playground/study-remote.html",
   });
   assert.deepEqual(remoteStudyCompanionLocationPolicy({
     href: "http://127.0.0.1:8000/study-remote.html#secret",

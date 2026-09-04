@@ -394,7 +394,7 @@ class AffectTrackerLauncherActivity : ComponentActivity() {
   companion object {
     private const val FOLDER_PROXY_REQUEST = 4103
     private const val INITIAL_VALIDATION_PASSES = 3
-    internal const val WEBXR_STUDY_URL = "https://GeorgeFejer91.github.io/affect-tracker-web/webxr.html"
+    internal const val WEBXR_STUDY_URL = "https://GeorgeFejer91.github.io/affect-tracker-playground/webxr.html"
     const val EXTRA_LAUNCH_IN_HOME_PENDING_INTENT = "extra_launch_in_home_pending_intent"
   }
 }
