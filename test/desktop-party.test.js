@@ -107,6 +107,7 @@ test("desktop host builds the one authoritative scene rendered locally and retur
         streamId: "aft_flubber_phone_12345678",
         label: "Study phone · Live FLUBBER",
         phase: "live",
+        appearance: "photo-synthetic-03",
         latest: { currentX: -0.25, currentY: 0.75, viewportX: 0.4, viewportY: 0.6 },
       }],
     },
@@ -134,6 +135,8 @@ test("desktop host builds the one authoritative scene rendered locally and retur
   ]);
   assert.equal(scene.participants[0].currentX, 0.5);
   assert.equal(scene.participants[1].currentY, 0.75);
+  assert.equal(scene.participants[0].appearance, "flubber");
+  assert.equal(scene.participants[1].appearance, "photo-synthetic-03");
 });
 
 test("desktop guest accepts only its own ordered Party scene and supports stale-peer recovery", () => {
@@ -207,6 +210,9 @@ test("desktop Party is explicit, data-only, narrowly networked, and ships the pi
   assert.match(html, /src="\.\/vdoninja\/1\.5\.5\/vdoninja-sdk\.min\.js"/);
   assert.match(controller, /elements\.host\.addEventListener\("click"/);
   assert.match(controller, /elements\.broadcast\.addEventListener\("click"/);
+  assert.match(controller, /createFaceEngineRenderer\(face/);
+  assert.match(controller, /view\.svg\.hidden = portrait/);
+  assert.match(controller, /view\.face\.hidden = !portrait/);
   assert.match(viteConfig, /publicDir: resolve\(desktopRoot, "\.\.\/site\/vendor"\)/);
   assert.equal(
     tauriConfig.app.security.csp,

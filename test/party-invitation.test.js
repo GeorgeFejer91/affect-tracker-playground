@@ -76,7 +76,7 @@ test("Ground Control exposes QR display and guest naming without auto-joining", 
   assert.match(app, /const started = await startLiveFlubberBroadcast\(sourceName\)/);
   assert.match(app, /if \(changedParty\) \{\s+showPartyGuestController\(\)/);
   assert.match(app, /setAccordionProtocolOpen\(state, "settings", true\)/);
-  assert.match(app, /Move it with the Flubber and 2D affect grid while the party host invites you/);
+  assert.match(app, /Choose a Party character, then move it and the 2D affect grid while the party host invites you/);
   const promptFunction = app.slice(app.indexOf("function openPartyGuestInvitation()"), app.indexOf("function updatePictureInPictureSupport()"));
   assert.doesNotMatch(promptFunction, /flubberBroadcaster\.start|startLiveFlubberBroadcast/);
   assert.match(styles, /\.ground-party-qr-code svg/);

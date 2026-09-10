@@ -1,6 +1,15 @@
 import { clamp } from "../../site/src/math.js";
+import { createFaceEngineRenderer } from "../../site/src/face-engines.js";
+import {
+  BUILTIN_FACE_PHOTO_PACK_CATALOG,
+  resolveFacePhotoPackAtlasUrl,
+} from "../../site/src/face-photo-packs.js";
 import { createFlubberRenderer } from "./render.js";
-import { createFlubberParty } from "../../site/src/flubber-collaboration.js";
+import {
+  createFlubberParty,
+  normalizePartyAppearance,
+  PARTY_APPEARANCE_FLUBBER,
+} from "../../site/src/flubber-collaboration.js";
 import {
   createFlubberBroadcaster,
   normalizeFlubberSourceName,
@@ -26,11 +35,25 @@ function participantSvg() {
   return svg;
 }
 
+function participantFace() {
+  const face = document.createElement("div");
+  face.className = "desktop-party-participant-face";
+  face.hidden = true;
+  face.setAttribute("aria-hidden", "true");
+  const source = document.querySelector(".face-preview");
+  face.append(...Array.from(source?.children ?? [], (child) => child.cloneNode(true)));
+  return face;
+}
+
 function safeMessage(error) {
   return error?.message ?? String(error ?? "Unknown Party error");
 }
 
-export function createDesktopPartyController({ announce }) {
+export function createDesktopPartyController({
+  announce,
+  facePhotoPackCatalog = BUILTIN_FACE_PHOTO_PACK_CATALOG,
+  resolveFacePhotoPackUrl = (id) => resolveFacePhotoPackAtlasUrl(id, facePhotoPackCatalog),
+}) {
   const elements = {
     name: document.querySelector("#desktop-party-name"),
     host: document.querySelector("#desktop-party-host-button"),
@@ -58,6 +81,12 @@ export function createDesktopPartyController({ announce }) {
   let drag;
   let errorMessage = "";
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+  function portraitPack(value) {
+    const appearance = normalizePartyAppearance(value);
+    if (appearance === PARTY_APPEARANCE_FLUBBER) return undefined;
+    return facePhotoPackCatalog.packs.find((pack) => pack.id === appearance);
+  }
 
   function setStatus(message, { error = false } = {}) {
     elements.status.textContent = message;
@@ -157,10 +186,22 @@ export function createDesktopPartyController({ announce }) {
     root.dataset.streamId = streamId;
     root.setAttribute("role", "group");
     const svg = participantSvg();
+    const face = participantFace();
     const label = document.createElement("span");
     label.className = "desktop-party-participant-label";
-    root.append(svg, label);
-    const view = { root, label, render: createFlubberRenderer(root) };
+    root.append(svg, face, label);
+    const view = {
+      root,
+      svg,
+      face,
+      label,
+      appearance: PARTY_APPEARANCE_FLUBBER,
+      render: createFlubberRenderer(root),
+      renderFace: createFaceEngineRenderer(face, {
+        mode: "photo-atlas",
+        photoAtlasUrl: resolveFacePhotoPackUrl(facePhotoPackCatalog.defaultPackId),
+      }),
+    };
     root.addEventListener("pointerdown", (event) => beginParticipantDrag(event, streamId));
     root.addEventListener("pointermove", (event) => moveParticipantDrag(event, streamId));
     root.addEventListener("pointerup", (event) => finishParticipantDrag(event, streamId));
@@ -171,9 +212,14 @@ export function createDesktopPartyController({ announce }) {
     return view;
   }
 
+  function destroyParticipantView(view) {
+    view.renderFace.destroy?.();
+    view.root.remove();
+  }
+
   function clearScene() {
     currentScene = undefined;
-    for (const view of views.values()) view.root.remove();
+    for (const view of views.values()) destroyParticipantView(view);
     views.clear();
     elements.stage.hidden = true;
   }
@@ -187,7 +233,7 @@ export function createDesktopPartyController({ announce }) {
     const retained = new Set(scene.participants.map((participant) => participant.streamId));
     for (const [streamId, view] of views) {
       if (retained.has(streamId)) continue;
-      view.root.remove();
+      destroyParticipantView(view);
       views.delete(streamId);
     }
     for (const [index, participant] of scene.participants.entries()) {
@@ -197,12 +243,8 @@ export function createDesktopPartyController({ announce }) {
       view.root.classList.toggle("is-draggable", participantCanDrag(participant));
       view.root.tabIndex = participantCanDrag(participant) ? 0 : -1;
       view.label.textContent = participant.label;
-      view.root.setAttribute(
-        "aria-label",
-        `${participant.host ? "Party host" : "Party participant"} ${participant.label}. Valence ${participant.currentX.toFixed(2)}, arousal ${participant.currentY.toFixed(2)}${participant.stale ? ", signal stale and holding" : ""}${participantCanDrag(participant) ? ". Drag or use arrow keys to reposition." : ""}`,
-      );
       setParticipantPosition(view, participant, participant.size);
-      view.render({
+      const frame = {
         sessionId: participant.streamId,
         currentX: participant.currentX,
         currentY: participant.currentY,
@@ -212,7 +254,29 @@ export function createDesktopPartyController({ announce }) {
         disorderScale: scene.visual.disorderScale,
         baseShape: scene.visual.baseShape,
         overlayOpacity: scene.visual.opacity,
-      }, reducedMotion.matches);
+      };
+      const pack = portraitPack(participant.appearance);
+      const portrait = Boolean(pack);
+      if (portrait && view.appearance !== pack.id) {
+        view.renderFace.setMode("photo-atlas");
+        view.renderFace.setPhotoAtlasUrl(resolveFacePhotoPackUrl(pack.id));
+        view.appearance = pack.id;
+      } else if (!portrait) {
+        view.appearance = PARTY_APPEARANCE_FLUBBER;
+      }
+      view.svg.hidden = portrait;
+      view.face.hidden = !portrait;
+      view.root.classList.toggle("is-party-portrait", portrait);
+      if (portrait) {
+        view.renderFace(frame, reducedMotion.matches);
+        view.renderFace.resize?.();
+      } else {
+        view.render(frame, reducedMotion.matches);
+      }
+      view.root.setAttribute(
+        "aria-label",
+        `${participant.host ? "Party host" : "Party participant"} ${participant.label}. ${portrait ? "Portrait" : "Flubber"}. Valence ${participant.currentX.toFixed(2)}, arousal ${participant.currentY.toFixed(2)}${participant.stale ? ", signal stale and holding" : ""}${participantCanDrag(participant) ? ". Drag or use arrow keys to reposition." : ""}`,
+      );
     }
     elements.stage.hidden = false;
   }

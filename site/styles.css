@@ -204,6 +204,22 @@ body.is-party-scene-active .affect-widget { z-index: 3; }
 .party-guest-flubber.is-dragging { z-index: 4; cursor: grabbing; filter: drop-shadow(0 0 1.2rem rgb(112 231 208 / 34%)); }
 .party-guest-flubber:focus-visible { outline: 3px solid #ffd166; outline-offset: 4px; }
 .party-guest-flubber svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.party-guest-flubber > svg[hidden],
+.party-participant-face[hidden] { display: none; }
+.party-participant-face,
+.party-participant-face canvas,
+.party-participant-face .main-affect-face-fallback,
+.party-participant-face .main-affect-face-fallback svg {
+  width: 100%;
+  height: 100%;
+}
+.party-participant-face { position: absolute; inset: 0; overflow: hidden; border-radius: 50%; }
+.party-participant-face canvas,
+.party-participant-face .main-affect-face-fallback { position: absolute; inset: 0; }
+.party-participant-face .face-model-canvas { z-index: 3; }
+.party-participant-face .face-photo-canvas { z-index: 2; }
+.party-participant-face .main-affect-face-fallback { z-index: 1; }
+.party-guest-flubber.is-party-portrait { filter: drop-shadow(0 0 0.8rem rgb(255 255 255 / 18%)); }
 .party-guest-flubber .shape-base { fill: var(--party-color); }
 .party-guest-flubber .shape-halo { fill: var(--party-color); stroke: var(--party-color); }
 .party-guest-flubber > span {
@@ -2260,6 +2276,24 @@ body.is-smartphone-layout .mobile-direct-controller {
 .mobile-controller-header > .mobile-controller-title { grid-area: 1 / 1; }
 .mobile-controller-header > button { grid-area: 1 / 2; }
 
+.mobile-party-appearance-field {
+  grid-area: 2 / 1 / 3 / -1;
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.mobile-party-appearance-field[hidden],
+.mobile-party-appearance-note[hidden] { display: none; }
+
+.mobile-party-appearance-note {
+  grid-area: 3 / 1 / 4 / -1;
+  margin: 0;
+  color: rgb(255 255 255 / 52%);
+  font-size: 0.56rem;
+  line-height: 1.3;
+}
+
 .mobile-controller-header h2 {
   margin: 0.05rem 0 0;
   font-size: 0.95rem;
@@ -2336,7 +2370,26 @@ body.is-smartphone-layout .mobile-direct-controller {
   white-space: nowrap;
 }
 
-.mobile-face-engine-field select:focus-visible {
+.mobile-party-appearance-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.4rem 1.65rem 0.4rem 0.55rem;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 0.45rem;
+  background: #15181b;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-face-engine-field select:focus-visible,
+.mobile-party-appearance-field select:focus-visible {
   outline: 2px solid #78d7ff;
   outline-offset: 2px;
 }
@@ -2352,6 +2405,8 @@ body.is-smartphone-layout .mobile-direct-controller {
 
   body.is-smartphone-layout .mobile-controller-header > .mobile-controller-title { grid-area: 1 / 1; }
   body.is-smartphone-layout .mobile-controller-header > button { grid-area: 1 / 2; }
+  body.is-smartphone-layout .mobile-party-appearance-field { grid-area: 1 / 3; }
+  body.is-smartphone-layout .mobile-party-appearance-note { display: none; }
   body.is-smartphone-layout .mobile-face-controls {
     grid-area: 1 / 3;
     width: min(25rem, 100%);
@@ -2403,6 +2458,15 @@ body.is-smartphone-layout .mobile-direct-controller {
 body.is-smartphone-layout .main-affect-face { display: none !important; }
 body.is-smartphone-layout.is-main-face-visible .mobile-main-affect-face:not([hidden]) { display: block; }
 body.is-smartphone-layout.is-main-face-visible .mobile-direct-flubber { width: min(34dvh, 46%, 11rem); }
+body.is-smartphone-layout.is-party-portrait .mobile-main-affect-face:not([hidden]) {
+  display: block;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+body.is-smartphone-layout.is-party-portrait .mobile-main-affect-face.is-dragging { cursor: grabbing; }
+body.is-smartphone-layout.is-party-portrait .mobile-direct-flubber { display: none; }
 
 .mobile-direct-flubber.is-dragging { cursor: grabbing; }
 

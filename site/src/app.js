@@ -99,7 +99,7 @@ import {
   isNewerFlubberSequence,
   normalizeFlubberViewportPosition,
   relativeFlubberViewportPosition,
-} from "./flubber-remote.js?v=collaboration-4";
+} from "./flubber-remote.js?v=collaboration-5";
 import {
   createSettingsSnapshotBroadcaster,
   createSettingsSnapshotReceiver,
@@ -111,12 +111,15 @@ import {
   combineUniverseCoordinates,
   createFlubberParty,
   createUniverseLink,
+  encodePartyAppearanceFrame,
   decodePartySceneFrame,
   morphPartyBirthContours,
+  normalizePartyAppearance,
   oneWayGroundRole,
+  PARTY_APPEARANCE_FLUBBER,
   partyBudVectorGeometry,
   partyFlubberPlacement,
-} from "./flubber-collaboration.js?v=collaboration-9";
+} from "./flubber-collaboration.js?v=collaboration-10";
 import {
   FLUBBER_PARTY_GUEST_URL,
   flubberPartyGuestInvitationRequested,
@@ -170,7 +173,11 @@ const elements = {
   mobileControllerHomeAnchor: document.querySelector("#mobile-controller-home-anchor"),
   mobileDirectController: document.querySelector("#mobile-direct-controller"),
   mobileDirectTitle: document.querySelector("#mobile-direct-title"),
+  mobilePartyAppearanceField: document.querySelector("#mobile-party-appearance-field"),
+  mobilePartyAppearance: document.querySelector("#mobile-party-appearance"),
+  mobilePartyAppearanceNote: document.querySelector("#mobile-party-appearance-note"),
   mobileFlubberDragArea: document.querySelector("#mobile-flubber-drag-area"),
+  mobileFlubberDragHint: document.querySelector("#mobile-flubber-drag-hint"),
   mobileDirectFlubber: document.querySelector("#mobile-direct-flubber"),
   mobileDirectBasePath: document.querySelector("#mobile-direct-base-path"),
   mobileDirectOutlinePath: document.querySelector("#mobile-direct-outline-path"),
@@ -667,6 +674,9 @@ let universeLocalCurrent = { currentX: state.currentX, currentY: state.currentY 
 const partyGuestViews = new Map();
 const incomingPartyViews = new Map();
 let incomingPartyScene;
+let partyAppearance = PARTY_APPEARANCE_FLUBBER;
+let partyAppearanceRetryTimer;
+let partyGuestAppearanceEnabled = false;
 let mobilePartyCamera = normalizeMobilePartyCamera();
 const mobilePartyCameraPointers = new Map();
 let mobilePartyCameraGesture;
@@ -690,6 +700,7 @@ let incomingPartyWidgetDragAnchor;
 let featurePointerId;
 let mobileCoordinatePointerId;
 let mobileFlubberPointerId;
+let mobileRepresentationDragElement;
 let mobileFlubberDragOffsetX = 0;
 let mobileFlubberDragOffsetY = 0;
 const liveRemotePositionSync = {
@@ -979,6 +990,88 @@ function initializeFacePhotoPackControls() {
   elements.mobileFacePhotoPack.replaceChildren(
     ...facePhotoPackCatalog.packs.map((pack) => createFacePhotoPackOption(pack, true)),
   );
+  const flubberOption = document.createElement("option");
+  flubberOption.value = PARTY_APPEARANCE_FLUBBER;
+  flubberOption.textContent = "Classic FLUBBER";
+  elements.mobilePartyAppearance.replaceChildren(
+    flubberOption,
+    ...facePhotoPackCatalog.packs.map((pack) => createFacePhotoPackOption(pack, true)),
+  );
+}
+
+function partyPortraitPack(value = partyAppearance) {
+  const appearance = normalizePartyAppearance(value);
+  if (appearance === PARTY_APPEARANCE_FLUBBER) return undefined;
+  return facePhotoPackCatalog.packs.find((pack) => pack.id === appearance);
+}
+
+function partyAppearanceControlActive() {
+  return partyGuestAppearanceEnabled
+    && smartphoneLayoutActive
+    && flubberBroadcaster.snapshot().phase === "broadcasting";
+}
+
+function partyPortraitActive() {
+  return partyAppearanceControlActive() && Boolean(partyPortraitPack());
+}
+
+function sendPartyAppearance(attemptsRemaining = 8) {
+  const sent = flubberBroadcaster.sendData(encodePartyAppearanceFrame(partyAppearance));
+  if (sent) {
+    clearTimeout(partyAppearanceRetryTimer);
+    partyAppearanceRetryTimer = undefined;
+    return true;
+  }
+  if (partyAppearanceControlActive()
+    && attemptsRemaining > 0
+    && partyAppearanceRetryTimer === undefined) {
+    partyAppearanceRetryTimer = setTimeout(() => {
+      partyAppearanceRetryTimer = undefined;
+      sendPartyAppearance(attemptsRemaining - 1);
+    }, 100);
+  }
+  return false;
+}
+
+function syncPartyAppearanceUi() {
+  const active = partyAppearanceControlActive();
+  const pack = partyPortraitPack();
+  const portraitActive = active && Boolean(pack);
+  elements.mobilePartyAppearanceField.hidden = !active;
+  elements.mobilePartyAppearanceNote.hidden = !active;
+  elements.mobilePartyAppearance.value = partyAppearance;
+  elements.mobileMainAffectFace.tabIndex = portraitActive ? 0 : -1;
+  elements.mobileDirectTitle.textContent = active
+    ? portraitActive ? facePhotoPackCompactLabel(pack, facePhotoPackCatalog) : "Classic FLUBBER"
+    : elements.mobileMainAffectFace.hidden ? "Flubber" : "Face + Flubber";
+  elements.mobileFlubberDragHint.textContent = portraitActive
+    ? "Drag the portrait to move it on connected screens"
+    : "Drag Flubber to move it on connected screens";
+  document.body.classList.toggle("is-party-portrait", portraitActive);
+  elements.mobileDirectFlubber.dataset.partyAppearance = portraitActive ? "hidden" : PARTY_APPEARANCE_FLUBBER;
+  elements.mobileMainAffectFace.dataset.partyAppearance = portraitActive ? pack.id : "hidden";
+  const desiredMode = portraitActive ? "photo-atlas" : state.faceEngineMode;
+  if (renderMobileAffectFace.mode !== desiredMode) renderMobileAffectFace.setMode(desiredMode);
+  const desiredAtlas = resolveFacePhotoPackAtlasUrl(
+    portraitActive ? pack.id : state.facePhotoPackId,
+    facePhotoPackCatalog,
+  );
+  if (renderMobileAffectFace.photoAtlasUrl !== desiredAtlas) renderMobileAffectFace.setPhotoAtlasUrl(desiredAtlas);
+}
+
+function selectPartyAppearance(value) {
+  const normalized = normalizePartyAppearance(value);
+  const next = normalized === PARTY_APPEARANCE_FLUBBER || partyPortraitPack(normalized)
+    ? normalized
+    : PARTY_APPEARANCE_FLUBBER;
+  partyAppearance = next;
+  syncPartyAppearanceUi();
+  constrainAndRenderWidget();
+  sendPartyAppearance();
+  const pack = partyPortraitPack();
+  const label = pack ? facePhotoPackPublicLabel(pack, facePhotoPackCatalog) : "Classic FLUBBER";
+  recordEvent("party-guest", "appearance", "party-character", next);
+  announce(`${label} now represents you on every connected Party screen. Drag it to reposition it.`);
 }
 
 function updateFacePhotoPackControls() {
@@ -1006,7 +1099,7 @@ function selectFacePhotoPack(value, source = "face-options") {
   state.facePhotoPackId = pack.id;
   const atlasUrl = resolveFacePhotoPackAtlasUrl(pack.id, facePhotoPackCatalog);
   renderMainAffectFace.setPhotoAtlasUrl(atlasUrl);
-  renderMobileAffectFace.setPhotoAtlasUrl(atlasUrl);
+  if (!partyPortraitActive()) renderMobileAffectFace.setPhotoAtlasUrl(atlasUrl);
   updateFacePhotoPackControls();
   updateMainFaceRendererStatus();
   savePreferences();
@@ -1025,7 +1118,7 @@ function selectMainFaceEngine(mode, source = "face-options") {
   }
   state.faceEngineMode = nextMode;
   renderMainAffectFace.setMode(nextMode);
-  renderMobileAffectFace.setMode(nextMode);
+  if (!partyPortraitActive()) renderMobileAffectFace.setMode(nextMode);
   updateFaceFlubberPanelState();
   savePreferences();
   const definition = faceEngineDefinition(nextMode);
@@ -1211,8 +1304,9 @@ function placeMobileDirectController() {
   if (!state.faceFlubberPanelOpen || !smartphoneLayoutActive) {
     elements.faceFlubberPanel.classList.remove("is-mobile-settings-open");
   }
-  elements.mobileFaceControls.hidden = !faceHostsController;
+  elements.mobileFaceControls.hidden = !faceHostsController || partyAppearanceControlActive();
   elements.mobileFacePhotoPackField.hidden = !faceHostsController
+    || partyAppearanceControlActive()
     || faceEngineDefinition(state.faceEngineMode).kind !== "photo";
   elements.mobileOpenSettings.textContent = faceHostsController ? "Face options" : "Settings";
   elements.mobileOpenSettings.setAttribute(
@@ -1786,6 +1880,15 @@ function movePartyGuestWithKeyboard(event, view) {
   recordEvent("ground-control", "party-guest-position", view.root.dataset.streamId, `${view.position.x.toFixed(1)},${view.position.y.toFixed(1)}`);
 }
 
+function createPartyParticipantFace() {
+  const face = document.createElement("div");
+  face.className = "party-participant-face";
+  face.setAttribute("aria-hidden", "true");
+  face.hidden = true;
+  face.append(...Array.from(elements.mobileMainAffectFace.children, (child) => child.cloneNode(true)));
+  return face;
+}
+
 function createPartyGuestView(streamId, label, { collection = partyGuestViews, interactive = true } = {}) {
   const root = document.createElement("div");
   root.className = "party-guest-flubber";
@@ -1808,10 +1911,18 @@ function createPartyGuestView(streamId, label, { collection = partyGuestViews, i
   svg.append(halo, base, outline);
   const caption = document.createElement("span");
   caption.textContent = label.replace(/\s*·\s*Live FLUBBER\s*$/i, "");
-  root.append(svg, caption);
+  const face = createPartyParticipantFace();
+  root.append(svg, face, caption);
   elements.partyStage.append(root);
   const view = {
     root,
+    svg,
+    face,
+    faceRenderer: createFaceEngineRenderer(face, {
+      mode: "photo-atlas",
+      photoAtlasUrl: resolveFacePhotoPackAtlasUrl(facePhotoPackCatalog.defaultPackId, facePhotoPackCatalog),
+    }),
+    appearance: PARTY_APPEARANCE_FLUBBER,
     paths: [halo, base, outline],
     offsets: createProjectionOffsets(streamId, profiles.waveCount),
     position: undefined,
@@ -1831,6 +1942,11 @@ function createPartyGuestView(streamId, label, { collection = partyGuestViews, i
   return view;
 }
 
+function destroyPartyGuestView(view) {
+  view.faceRenderer?.destroy?.();
+  view.root.remove();
+}
+
 function projectionOffsetsForPartyParticipant(streamId) {
   if (!streamId) return offsets;
   if (!partyProjectionOffsets.has(streamId)) {
@@ -1843,7 +1959,7 @@ function syncPartyGuestViews(detail = flubberParty.snapshot()) {
   const present = new Set(detail.guests.map((guest) => guest.streamId));
   for (const [streamId, view] of partyGuestViews) {
     if (present.has(streamId)) continue;
-    view.root.remove();
+    destroyPartyGuestView(view);
     partyGuestViews.delete(streamId);
   }
   for (const guest of detail.guests) {
@@ -1991,7 +2107,7 @@ function startPartyBirthAnimation(guest, detail) {
   applyPartyGuestPlacement(view, placement, { resetPosition: true });
   view.root.hidden = false;
   constrainAndRenderWidget();
-  if (reducedMotionQuery.matches || elements.widget.hidden) return;
+  if (partyPortraitPack(guest.appearance) || reducedMotionQuery.matches || elements.widget.hidden) return;
   partyBirthGuestId = guest.streamId;
   partyBirthAnimation = {
     guestId: guest.streamId,
@@ -2674,7 +2790,7 @@ function renderSynchronizedAffectPreview(snapshot, flubber) {
     root.dataset.renderPhase = snapshot.phase.toFixed(6);
     root.setAttribute(
       "aria-label",
-      `${faceKind}: valence ${snapshot.currentX.toFixed(3)}, arousal ${snapshot.currentY.toFixed(3)}${matrixCell ? `; 21 by 21 matrix cell ${matrixCell.column + 1}, ${matrixCell.row + 1}` : ""}; synchronized with the Flubber to its right.`,
+      `${faceKind}: valence ${snapshot.currentX.toFixed(3)}, arousal ${snapshot.currentY.toFixed(3)}${matrixCell ? `; 21 by 21 matrix cell ${matrixCell.column + 1}, ${matrixCell.row + 1}` : ""}${root === elements.mobileMainAffectFace && partyPortraitActive() ? "; this portrait is your draggable Party character." : "; synchronized with the Flubber to its right."}`,
     );
   }
   elements.faceFlubberValenceOutput.value = formatCoordinate(snapshot.currentX);
@@ -2814,7 +2930,7 @@ function chooseMobileFlubberPosition(event) {
     height: areaBounds.height,
     flubberX: event.clientX - areaBounds.left - mobileFlubberDragOffsetX,
     flubberY: event.clientY - areaBounds.top - mobileFlubberDragOffsetY,
-    faceVisible: !elements.mobileMainAffectFace.hidden,
+    faceVisible: !partyPortraitActive() && !elements.mobileMainAffectFace.hidden,
     fallbackViewportX: currentPosition.viewportX,
     fallbackViewportY: currentPosition.viewportY,
   });
@@ -2987,12 +3103,14 @@ function mainAffectFaceShouldShow() {
 function positionMainAffectFace(flubberPosition, pairLayout) {
   const visible = mainAffectFaceShouldShow();
   const desktopVisible = visible && !smartphoneLayoutActive;
-  const mobileVisible = visible && smartphoneLayoutActive;
+  const portraitActive = partyPortraitActive();
+  const mobileVisible = smartphoneLayoutActive && (portraitActive || (visible && !partyAppearanceControlActive()));
   elements.mainAffectFace.hidden = !desktopVisible;
   elements.mobileMainAffectFace.hidden = !mobileVisible;
-  elements.mobileDirectTitle.textContent = mobileVisible ? "Face + Flubber" : "Flubber";
-  document.body.classList.toggle("is-main-face-visible", visible);
-  if (!visible) return;
+  elements.mobileDirectFlubber.hidden = portraitActive;
+  document.body.classList.toggle("is-main-face-visible", desktopVisible || mobileVisible);
+  syncPartyAppearanceUi();
+  if (!desktopVisible && !mobileVisible) return;
   if (mobileVisible) {
     renderMobileAffectFace.resize?.();
     return;
@@ -3040,7 +3158,8 @@ function constrainAndRenderWidget() {
     : (experiment.displayWidgetSize ?? state.widgetSize));
   const cameraScale = mobilePartyCameraActive() ? mobilePartyCamera.zoom : 1;
   const pairLayout = mainAffectPairLayout(requestedWidgetSize * cameraScale);
-  const renderedWidgetSize = mainAffectFaceShouldShow()
+  const pairedFaceVisible = mainAffectFaceShouldShow() && !partyAppearanceControlActive();
+  const renderedWidgetSize = pairedFaceVisible
     ? pairLayout.widgetSize / cameraScale
     : requestedWidgetSize;
   const constrained = constrainWidgetPosition(
@@ -3052,7 +3171,7 @@ function constrainAndRenderWidget() {
   );
   state.widgetX = constrained.x;
   state.widgetY = constrained.y;
-  if (mainAffectFaceShouldShow()
+  if (pairedFaceVisible
     && !smartphoneLayoutActive
     && !sharedPartyParticipant
     && cameraScale === 1) {
@@ -3121,18 +3240,29 @@ function renderMobileFlubberPosition() {
   const areaBounds = elements.mobileFlubberDragArea?.getBoundingClientRect();
   if (!areaBounds?.width || !areaBounds?.height) return;
   const normalized = normalizedWidgetPosition();
+  const portraitActive = partyPortraitActive();
   const layout = layoutMobileAffectPreviews({
     width: areaBounds.width,
     height: areaBounds.height,
     viewportX: normalized.viewportX,
     viewportY: normalized.viewportY,
-    faceVisible: !elements.mobileMainAffectFace.hidden,
+    faceVisible: !portraitActive && !elements.mobileMainAffectFace.hidden,
   });
   if (!layout) return;
 
   elements.mobileDirectFlubber.style.width = `${layout.flubber.size.toFixed(3)}px`;
   elements.mobileDirectFlubber.style.left = `${layout.flubber.x}px`;
   elements.mobileDirectFlubber.style.top = `${layout.flubber.y}px`;
+  if (portraitActive) {
+    const faceSize = `${layout.flubber.size.toFixed(3)}px`;
+    const faceSizeChanged = elements.mobileMainAffectFace.style.width !== faceSize;
+    elements.mobileMainAffectFace.dataset.side = "solo";
+    elements.mobileMainAffectFace.style.width = faceSize;
+    elements.mobileMainAffectFace.style.left = `${layout.flubber.x}px`;
+    elements.mobileMainAffectFace.style.top = `${layout.flubber.y}px`;
+    if (faceSizeChanged) renderMobileAffectFace.resize?.();
+    return;
+  }
   if (layout.face) {
     const faceSize = `${layout.face.size.toFixed(3)}px`;
     const faceSizeChanged = elements.mobileMainAffectFace.style.width !== faceSize;
@@ -3200,6 +3330,46 @@ function renderPictureInPicture(rendered, opacity = state.widgetOpacity) {
   );
 }
 
+function renderPartyParticipant(view, participant, visual, index) {
+  const rendered = buildFlubberPath({
+    profiles,
+    offsets: view.offsets,
+    x: participant.currentX,
+    y: participant.currentY,
+    phase: visual.phase + index * 0.47,
+    palette: visual.palette,
+    amplitudeScale: visual.amplitudeScale,
+    disorderScale: visual.disorderScale,
+    baseShape: visual.baseShape,
+    reducedMotion: reducedMotionQuery.matches,
+  });
+  const pack = partyPortraitPack(participant.appearance);
+  const portrait = Boolean(pack);
+  if (portrait && view.appearance !== pack.id) {
+    view.faceRenderer.setMode("photo-atlas");
+    view.faceRenderer.setPhotoAtlasUrl(resolveFacePhotoPackAtlasUrl(pack.id, facePhotoPackCatalog));
+    view.appearance = pack.id;
+  } else if (!portrait) {
+    view.appearance = PARTY_APPEARANCE_FLUBBER;
+  }
+  view.svg.hidden = portrait;
+  view.face.hidden = !portrait;
+  view.root.classList.toggle("is-party-portrait", portrait);
+  if (portrait) {
+    view.faceRenderer({
+      currentX: participant.currentX,
+      currentY: participant.currentY,
+      phase: visual.phase + index * 0.47,
+      overlayOpacity: visual.opacity,
+    }, reducedMotionQuery.matches, rendered.color);
+    view.faceRenderer.resize?.();
+  } else {
+    for (const path of view.paths) path.setAttribute("d", rendered.path);
+  }
+  view.root.style.setProperty("--party-color", rendered.color);
+  return portrait ? "portrait" : "Flubber";
+}
+
 function renderPartyFlubbers() {
   const guests = flubberParty.snapshot().guests.filter((guest) => guest.latest
     && (guest.phase === "live" || guest.phase === "stale"));
@@ -3215,25 +3385,20 @@ function renderPartyFlubbers() {
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
     });
-    const rendered = buildFlubberPath({
-      profiles,
-      offsets: view.offsets,
-      x: guest.latest.currentX,
-      y: guest.latest.currentY,
-      phase: state.phase + (index + 1) * 0.47,
-      palette: state.palette,
-      amplitudeScale: state.visual.amplitudeScale,
-      disorderScale: state.visual.disorderScale,
-      baseShape: state.visual.baseShape,
-      reducedMotion: reducedMotionQuery.matches,
-    });
-    for (const path of view.paths) path.setAttribute("d", rendered.path);
     view.root.hidden = false;
     applyPartyGuestPlacement(view, placement);
     applyPartyGuestRemotePosition(view, guest.latest);
-    view.root.style.setProperty("--party-color", rendered.color);
+    const representation = renderPartyParticipant(view, {
+      ...guest.latest,
+      appearance: guest.appearance,
+    }, {
+      ...state.visual,
+      opacity: state.widgetOpacity,
+      palette: state.palette,
+      phase: state.phase,
+    }, index + 1);
     view.root.style.opacity = String(state.widgetOpacity);
-    view.root.setAttribute("aria-label", `Draggable invited ${guest.label}. Valence ${guest.latest.currentX.toFixed(2)}, arousal ${guest.latest.currentY.toFixed(2)}${guest.phase === "stale" ? ", signal stale and holding" : ""}. Drag independently or use arrow keys to move this Flubber on screen.`);
+    view.root.setAttribute("aria-label", `Draggable invited ${guest.label}. Valence ${guest.latest.currentX.toFixed(2)}, arousal ${guest.latest.currentY.toFixed(2)}${guest.phase === "stale" ? ", signal stale and holding" : ""}. Drag independently or use arrow keys to move this ${representation} on screen.`);
   }
   const liveIds = new Set(guests.map((guest) => guest.streamId));
   for (const [streamId, view] of partyGuestViews) view.root.hidden = !liveIds.has(streamId);
@@ -3264,6 +3429,7 @@ function renderPartyFlubbers() {
           viewportY: (view?.position?.y ?? window.innerHeight / 2) / Math.max(1, window.innerHeight),
           size: (view?.size ?? 108) / minimumViewportSpan,
           stale: guest.phase === "stale",
+          appearance: guest.appearance,
         };
       }),
     });
@@ -3271,7 +3437,7 @@ function renderPartyFlubbers() {
 }
 
 function removeIncomingPartyViews() {
-  for (const view of incomingPartyViews.values()) view.root.remove();
+  for (const view of incomingPartyViews.values()) destroyPartyGuestView(view);
   incomingPartyViews.clear();
 }
 
@@ -3287,7 +3453,7 @@ function clearIncomingPartyScene({ announceDeparture = false } = {}) {
   }
   updateRemoteBroadcastUi();
   updatePartyScenePresentation();
-  if (announceDeparture) announce("The shared FLUBBER party scene ended; your local Flubber remains available.");
+  if (announceDeparture) announce("The shared FLUBBER party scene ended; your local Party character remains available.");
 }
 
 function acceptIncomingPartyScene(detail) {
@@ -3300,12 +3466,14 @@ function acceptIncomingPartyScene(detail) {
     && !isNewerFlubberSequence(frame.sequence, incomingPartyScene.sequence)) return;
   const changedParty = incomingPartyScene?.partyId !== frame.partyId;
   incomingPartyScene = { ...frame, peerUuid: detail.uuid, receivedAt: performance.now() };
+  const localParticipant = frame.participants.find((participant) => participant.streamId === localStreamId);
+  if (localParticipant?.appearance !== partyAppearance) sendPartyAppearance();
   constrainAndRenderWidget();
   updateRemoteBroadcastUi();
   updatePartyScenePresentation();
   if (changedParty) {
     showPartyGuestController();
-    announce("You joined a shared FLUBBER party scene. Drag your Flubber and use the 2D affect grid; everyone in this party can now see the same participants.");
+    announce("You joined a shared FLUBBER party scene. Drag your Party character and use the 2D affect grid; everyone in this party can now see the same participants.");
   }
 }
 
@@ -3325,7 +3493,7 @@ function renderIncomingPartyScene(now = performance.now()) {
   const present = new Set(remoteParticipants.map((participant) => participant.streamId));
   for (const [streamId, view] of incomingPartyViews) {
     if (present.has(streamId)) continue;
-    view.root.remove();
+    destroyPartyGuestView(view);
     incomingPartyViews.delete(streamId);
   }
   const minimumViewportSpan = Math.max(1, Math.min(window.innerWidth, window.innerHeight));
@@ -3339,21 +3507,13 @@ function renderIncomingPartyScene(now = performance.now()) {
       y: participant.viewportY * window.innerHeight,
     };
     renderPartyGuestPosition(view);
-    const rendered = buildFlubberPath({
-      profiles,
-      offsets: view.offsets,
-      x: participant.currentX,
-      y: participant.currentY,
-      phase: incomingPartyScene.visual.phase + incomingPartyScene.participants.indexOf(participant) * 0.47,
-      palette: incomingPartyScene.visual.palette,
-      amplitudeScale: incomingPartyScene.visual.amplitudeScale,
-      disorderScale: incomingPartyScene.visual.disorderScale,
-      baseShape: incomingPartyScene.visual.baseShape,
-      reducedMotion: reducedMotionQuery.matches,
-    });
-    for (const path of view.paths) path.setAttribute("d", rendered.path);
+    renderPartyParticipant(
+      view,
+      participant,
+      incomingPartyScene.visual,
+      incomingPartyScene.participants.indexOf(participant),
+    );
     view.root.hidden = false;
-    view.root.style.setProperty("--party-color", rendered.color);
     view.root.style.opacity = String(incomingPartyScene.visual.opacity);
     view.root.setAttribute("aria-label", `${participant.host ? "Party host" : "Party participant"} ${participant.label}. Valence ${participant.currentX.toFixed(2)}, arousal ${participant.currentY.toFixed(2)}${participant.stale ? ", signal stale and holding" : ""}.`);
   }
@@ -4630,7 +4790,16 @@ function clearLog() {
 function initializeEvents() {
   flubberBroadcaster.addEventListener("statechange", (event) => {
     updateRemoteBroadcastUi(event.detail);
-    if (event.detail.phase === "idle") clearIncomingPartyScene();
+    syncPartyAppearanceUi();
+    placeMobileDirectController();
+    constrainAndRenderWidget();
+    if (partyAppearanceControlActive()) sendPartyAppearance();
+    if (event.detail.phase === "idle") {
+      clearTimeout(partyAppearanceRetryTimer);
+      partyAppearanceRetryTimer = undefined;
+      partyGuestAppearanceEnabled = false;
+      clearIncomingPartyScene();
+    }
   });
   flubberBroadcaster.addEventListener("message", (event) => acceptIncomingPartyScene(event.detail));
   flubberReceiver.addEventListener("statechange", (event) => {
@@ -4743,6 +4912,9 @@ function initializeEvents() {
   });
   elements.mobileFacePhotoPack.addEventListener("change", () => {
     selectFacePhotoPack(elements.mobileFacePhotoPack.value, "phone-portrait-switcher");
+  });
+  elements.mobilePartyAppearance.addEventListener("change", () => {
+    selectPartyAppearance(elements.mobilePartyAppearance.value);
   });
   elements.mainAffectTransition.addEventListener("change", () => {
     setAffectTransitionMode(elements.mainAffectTransition.value);
@@ -4942,10 +5114,13 @@ function initializeEvents() {
       elements.groundControlName.value = sourceName;
       savePreferences();
       const started = await startLiveFlubberBroadcast(sourceName);
+      partyGuestAppearanceEnabled = true;
       showPartyGuestController();
       elements.partyGuestDialog.close();
-      elements.mobileDirectFlubber.focus({ preventScroll: true });
-      announce(`${started.sourceLabel} is discoverable. Move it with the Flubber and 2D affect grid while the party host invites you.`);
+      syncPartyAppearanceUi();
+      sendPartyAppearance();
+      (partyPortraitActive() ? elements.mobileMainAffectFace : elements.mobileDirectFlubber).focus({ preventScroll: true });
+      announce(`${started.sourceLabel} is discoverable. Choose a Party character, then move it and the 2D affect grid while the party host invites you.`);
     } catch (error) {
       elements.partyGuestStatus.textContent = error?.message ?? String(error);
       elements.partyGuestStatus.classList.add("is-error");
@@ -5221,35 +5396,40 @@ function initializeEvents() {
     elements.faceFlubberPanel.classList.remove("is-mobile-settings-open");
     elements.mobileCoordinateSpace.focus();
   });
-  elements.mobileDirectFlubber.addEventListener("pointerdown", (event) => {
+  const beginMobileRepresentationDrag = (event) => {
     if (event.isPrimary === false || (event.pointerType === "mouse" && event.button !== 0)) return;
-    const bounds = elements.mobileDirectFlubber.getBoundingClientRect();
+    const surface = event.currentTarget;
+    if (surface === elements.mobileMainAffectFace && !partyPortraitActive()) return;
+    const bounds = surface.getBoundingClientRect();
     event.preventDefault();
     mobileFlubberPointerId = event.pointerId;
+    mobileRepresentationDragElement = surface;
     mobileFlubberDragOffsetX = event.clientX - (bounds.left + bounds.width / 2);
     mobileFlubberDragOffsetY = event.clientY - (bounds.top + bounds.height / 2);
-    elements.mobileDirectFlubber.classList.add("is-dragging");
-    elements.mobileDirectFlubber.setPointerCapture(event.pointerId);
-  });
-  elements.mobileDirectFlubber.addEventListener("pointermove", (event) => {
-    if (event.pointerId !== mobileFlubberPointerId) return;
+    surface.classList.add("is-dragging");
+    if (surface === elements.mobileDirectFlubber) elements.mobileDirectFlubber.setPointerCapture(event.pointerId);
+    else elements.mobileMainAffectFace.setPointerCapture(event.pointerId);
+  };
+  const moveMobileRepresentationDrag = (event) => {
+    if (event.pointerId !== mobileFlubberPointerId || event.currentTarget !== mobileRepresentationDragElement) return;
     event.preventDefault();
     chooseMobileFlubberPosition(event);
-  });
+  };
   const finishMobileFlubberDrag = (event) => {
-    if (event.pointerId !== mobileFlubberPointerId) return;
+    if (event.pointerId !== mobileFlubberPointerId || event.currentTarget !== mobileRepresentationDragElement) return;
+    const surface = mobileRepresentationDragElement;
     mobileFlubberPointerId = undefined;
-    elements.mobileDirectFlubber.classList.remove("is-dragging");
-    if (elements.mobileDirectFlubber.hasPointerCapture(event.pointerId)) {
-      elements.mobileDirectFlubber.releasePointerCapture(event.pointerId);
+    mobileRepresentationDragElement = undefined;
+    surface.classList.remove("is-dragging");
+    if (surface.hasPointerCapture(event.pointerId)) {
+      surface.releasePointerCapture(event.pointerId);
     }
     reanchorLiveRemotePosition();
     savePreferences();
-    recordEvent("pointer", "drag-complete", "mobile-flubber", `${Math.round(state.widgetX)}:${Math.round(state.widgetY)}`);
+    recordEvent("pointer", "drag-complete", "mobile-party-character", `${Math.round(state.widgetX)}:${Math.round(state.widgetY)}`);
   };
-  elements.mobileDirectFlubber.addEventListener("pointerup", finishMobileFlubberDrag);
-  elements.mobileDirectFlubber.addEventListener("pointercancel", finishMobileFlubberDrag);
-  elements.mobileDirectFlubber.addEventListener("keydown", (event) => {
+  const moveMobileRepresentationWithKeyboard = (event) => {
+    if (event.currentTarget === elements.mobileMainAffectFace && !partyPortraitActive()) return;
     const step = event.shiftKey ? 0.1 : 0.05;
     const delta = {
       ArrowLeft: [-step, 0],
@@ -5267,8 +5447,18 @@ function initializeEvents() {
     });
     reanchorLiveRemotePosition();
     savePreferences();
-    recordEvent("pointer", "move", `mobile-flubber-${event.key}`, `${Math.round(state.widgetX)}:${Math.round(state.widgetY)}`);
-  });
+    recordEvent("pointer", "move", `mobile-party-character-${event.key}`, `${Math.round(state.widgetX)}:${Math.round(state.widgetY)}`);
+  };
+  elements.mobileDirectFlubber.addEventListener("pointerdown", beginMobileRepresentationDrag);
+  elements.mobileDirectFlubber.addEventListener("pointermove", moveMobileRepresentationDrag);
+  elements.mobileDirectFlubber.addEventListener("pointerup", finishMobileFlubberDrag);
+  elements.mobileDirectFlubber.addEventListener("pointercancel", finishMobileFlubberDrag);
+  elements.mobileDirectFlubber.addEventListener("keydown", moveMobileRepresentationWithKeyboard);
+  elements.mobileMainAffectFace.addEventListener("pointerdown", beginMobileRepresentationDrag);
+  elements.mobileMainAffectFace.addEventListener("pointermove", moveMobileRepresentationDrag);
+  elements.mobileMainAffectFace.addEventListener("pointerup", finishMobileFlubberDrag);
+  elements.mobileMainAffectFace.addEventListener("pointercancel", finishMobileFlubberDrag);
+  elements.mobileMainAffectFace.addEventListener("keydown", moveMobileRepresentationWithKeyboard);
   elements.mobileCoordinateSpace.addEventListener("pointerdown", (event) => {
     if (event.isPrimary === false) return;
     const bounds = elements.mobileCoordinateSpace.getBoundingClientRect();
@@ -5581,6 +5771,7 @@ function animationFrame(timestamp) {
 function initialize() {
   applyRetroTheme();
   initializeFacePhotoPackControls();
+  syncPartyAppearanceUi();
   updateAccordionPanelStates();
   initializePolarUi();
   updateModeControls();

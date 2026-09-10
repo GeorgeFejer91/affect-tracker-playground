@@ -311,8 +311,15 @@ test("the proven live channel carries bounded reciprocal party-scene messages", 
   await broadcaster.start();
   broadcasterSdk.emit("dataChannelOpen", { uuid: "party-host" });
   await settle();
-  broadcasterSdk.channels.get("party-host").message("party-scene-json");
+  const broadcasterChannel = broadcasterSdk.channels.get("party-host");
+  broadcasterChannel.message("party-scene-json");
   assert.deepEqual(incoming, { uuid: "party-host", data: "party-scene-json" });
+  assert.equal(broadcaster.sendData("party-appearance-json"), true);
+  assert.deepEqual(broadcasterChannel.sent, ["party-appearance-json"]);
+  broadcasterChannel.bufferedAmount = 1;
+  assert.equal(broadcaster.sendData("newer-party-appearance"), false, "appearance metadata has no backlog under pressure");
+  broadcasterChannel.bufferedAmount = 0;
+  assert.equal(broadcaster.sendData("x".repeat(16_385)), false, "auxiliary strings remain byte bounded");
 
   const receiverClock = new FakeClock();
   const receiverSdk = new MockSdk();
@@ -891,9 +898,9 @@ test("remote pages load only the local SDK and feature code makes no microphone 
   assert.match(index, />Broadcast Live FLUBBER</);
   assert.match(index, /id="flubber-remote-foreground-button"[^>]*hidden>Restore low-latency foreground mode</);
   assert.match(webxr, />Use incoming signal</);
-  assert.match(index, /src="\.\/src\/app\.js\?v=face-engines-1-main-2-screen-calibration-module-4-mobile-party-camera-1-collaboration-10-retro-2-phone-preview-1-face-tab-1-matrix21-1-phone-face-switcher-1-friendly-eyes-1-photo-packs-2-affec-guided-3-party-qr-1"/);
+  assert.match(index, /src="\.\/src\/app\.js\?v=face-engines-1-main-2-screen-calibration-module-4-mobile-party-camera-1-collaboration-11-retro-2-phone-preview-1-face-tab-1-matrix21-1-phone-face-switcher-1-friendly-eyes-1-photo-packs-2-affec-guided-3-party-qr-1-party-character-1"/);
   assert.match(webxr, /src="\.\/src\/webxr-study\.js\?v=collaboration-4-portable-study-2"/);
-  assert.match(app, /from "\.\/flubber-remote\.js\?v=collaboration-4"/);
+  assert.match(app, /from "\.\/flubber-remote\.js\?v=collaboration-5"/);
   assert.match(receiver, /from "\.\/flubber-remote\.js\?v=collaboration-4"/);
   assert.match(transport, /FLUBBER_REMOTE_FORCE_TURN_PARAM = "remote-force-turn"/);
   assert.match(transport, /forceTURN: Boolean\(forceTurn\)/);

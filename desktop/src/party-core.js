@@ -119,6 +119,7 @@ export function buildDesktopHostScene({ party, snapshot, placements }) {
       size,
       stale: guest.phase === "stale",
       host: false,
+      appearance: guest.appearance,
     };
   });
   return {
@@ -135,6 +136,7 @@ export function buildDesktopHostScene({ party, snapshot, placements }) {
         size: DESKTOP_PARTY_HOST_SIZE,
         stale: false,
         host: true,
+        appearance: "flubber",
       },
       ...guests,
     ],

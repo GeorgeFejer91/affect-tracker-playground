@@ -483,6 +483,22 @@ export class FlubberBroadcaster extends FlubberRemoteBase {
     return coordinatesSent || positionSent;
   }
 
+  sendData(value) {
+    if (this.phase !== "broadcasting" || typeof value !== "string") return false;
+    if (new TextEncoder().encode(value).byteLength > FLUBBER_REMOTE_AUXILIARY_MAX_BYTES) return false;
+    let sent = false;
+    for (const channel of this.channels.values()) {
+      if (!channel || channel.readyState !== "open" || Number(channel.bufferedAmount) > 0) continue;
+      try {
+        channel.send(value);
+        sent = true;
+      } catch {
+        // Appearance metadata is best-effort and is resent after state changes.
+      }
+    }
+    return sent;
+  }
+
   offerViewportPosition(viewportX, viewportY, offeredAt = this.now()) {
     if (!this.positionChannelName) return false;
     const x = Number(viewportX);

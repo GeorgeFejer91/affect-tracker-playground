@@ -104,6 +104,28 @@ test("the phone layout uses safe areas and a split Flubber/direct-coordinate con
   assert.match(css, /#face-flubber-panel\.has-mobile-direct-controller\.is-mobile-settings-open #mobile-close-face-options/);
 });
 
+test("a Party guest selects exactly one draggable character and shares that choice with the host", async () => {
+  const [html, app, css] = await Promise.all([
+    readSiteFile("index.html"),
+    readSiteFile("src/app.js"),
+    readSiteFile("styles.css"),
+  ]);
+  assert.match(html, /id="mobile-party-appearance"[^>]*aria-label="Party character"/);
+  assert.match(html, /id="mobile-main-affect-face"[\s\S]*aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"/);
+  assert.match(app, /flubberOption\.textContent = "Classic FLUBBER"/);
+  assert.match(app, /facePhotoPackCatalog\.packs\.map\(\(pack\) => createFacePhotoPackOption\(pack, true\)\)/);
+  assert.match(app, /elements\.mobileDirectFlubber\.hidden = portraitActive/);
+  assert.match(app, /view\.svg\.hidden = portrait/);
+  assert.match(app, /view\.face\.hidden = !portrait/);
+  assert.match(app, /flubberBroadcaster\.sendData\(encodePartyAppearanceFrame\(partyAppearance\)\)/);
+  assert.match(app, /mobileDirectFlubber\.addEventListener\("pointerdown", beginMobileRepresentationDrag\)/);
+  assert.match(app, /mobileMainAffectFace\.addEventListener\("pointerdown", beginMobileRepresentationDrag\)/);
+  assert.match(css, /body\.is-smartphone-layout\.is-party-portrait \.mobile-direct-flubber \{ display: none; \}/);
+  assert.match(css, /body\.is-smartphone-layout\.is-party-portrait \.mobile-main-affect-face\.is-dragging/);
+  const savedPreferences = app.slice(app.indexOf("function savePreferences"), app.indexOf("function settingsFromState"));
+  assert.doesNotMatch(savedPreferences, /partyAppearance/);
+});
+
 test("phone face and Flubber previews stay square, ordered, and contained", () => {
   const supportedPreviewAreas = [
     { name: "360 by 800 portrait", width: 318, height: 270 },

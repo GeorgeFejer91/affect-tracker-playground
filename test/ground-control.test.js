@@ -199,7 +199,7 @@ test("Ground Control exposes the requested hierarchy, animated SVG states, and p
   assert.match(app, /function beginPartyGuestDrag\(event, view\)[\s\S]*setPointerCapture\(event\.pointerId\)/);
   assert.match(app, /function movePartyGuestDrag\(event, view\)[\s\S]*movePartyGuest\(view,/);
   assert.match(app, /function movePartyGuestWithKeyboard\(event, view\)[\s\S]*ArrowLeft[\s\S]*ArrowDown/);
-  assert.match(app, /Drag independently or use arrow keys to move this Flubber on screen/);
+  assert.match(app, /Drag independently or use arrow keys to move this \$\{representation\} on screen/);
   assert.match(app, /incomingOwnsAxes[\s\S]*state\.targetX = incoming\.latest\.currentX;[\s\S]*state\.currentY = incoming\.latest\.currentY;/);
   assert.match(app, /oneWayGroundRole[\s\S]*Stop sending before receiving from this browser/);
   assert.match(app, /combineUniverseCoordinates\(universeLocalCurrent, universe\.latest\)/);

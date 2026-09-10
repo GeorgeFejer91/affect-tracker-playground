@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   combineUniverseCoordinates,
+  decodePartyAppearanceFrame,
   decodePartySceneFrame,
+  encodePartyAppearanceFrame,
   encodePartySceneFrame,
   FlubberParty,
   morphPartyBirthContours,
@@ -10,6 +12,8 @@ import {
   partyBudVectorGeometry,
   partyFlubberPlacement,
   PARTY_MAX_GUESTS,
+  PARTY_APPEARANCE_FLUBBER,
+  PARTY_APPEARANCE_PROTOCOL,
   PARTY_SCENE_PROTOCOL,
   UNIVERSE_CHANNEL,
   UNIVERSE_ROOM,
@@ -246,7 +250,7 @@ test("party scenes are bounded, validated, and identify exactly one host", () =>
     sequence: 7,
     participants: [
       { streamId: "party_1234_host", label: "Host", currentX: 0.25, currentY: -0.5, viewportX: 0.5, viewportY: 0.5, size: 0.2, host: true },
-      { streamId: "aft_flubber_guest", label: "Guest", currentX: 4, currentY: -4, viewportX: 2, viewportY: -2, size: 0.01 },
+      { streamId: "aft_flubber_guest", label: "Guest", currentX: 4, currentY: -4, viewportX: 2, viewportY: -2, size: 0.01, appearance: "photo-synthetic-03" },
     ],
   });
   assert.equal(JSON.parse(encoded).protocol, PARTY_SCENE_PROTOCOL);
@@ -263,8 +267,8 @@ test("party scenes are bounded, validated, and identify exactly one host", () =>
       palette: { up: "#ffd166", down: "#5c7cfa", left: "#ff5b68", right: "#5dffb0" },
     },
     participants: [
-      { streamId: "party_1234_host", label: "Host", currentX: 0.25, currentY: -0.5, viewportX: 0.5, viewportY: 0.5, size: 0.2, stale: false, host: true },
-      { streamId: "aft_flubber_guest", label: "Guest", currentX: 1, currentY: -1, viewportX: 1, viewportY: 0, size: 0.04, stale: false, host: false },
+      { streamId: "party_1234_host", label: "Host", currentX: 0.25, currentY: -0.5, viewportX: 0.5, viewportY: 0.5, size: 0.2, stale: false, host: true, appearance: PARTY_APPEARANCE_FLUBBER },
+      { streamId: "aft_flubber_guest", label: "Guest", currentX: 1, currentY: -1, viewportX: 1, viewportY: 0, size: 0.04, stale: false, host: false, appearance: "photo-synthetic-03" },
     ],
   });
   assert.equal(decodePartySceneFrame("{}"), undefined);
@@ -274,6 +278,52 @@ test("party scenes are bounded, validated, and identify exactly one host", () =>
       { streamId: "one", label: "One", currentX: 0, currentY: 0, viewportX: 0.5, viewportY: 0.5, size: 0.2 },
     ],
   }), /exactly one host/);
+});
+
+test("party appearance messages are bounded, exact, and default old scenes to Classic FLUBBER", () => {
+  const encoded = encodePartyAppearanceFrame("photo-synthetic-07");
+  assert.equal(JSON.parse(encoded).protocol, PARTY_APPEARANCE_PROTOCOL);
+  assert.deepEqual(decodePartyAppearanceFrame(encoded), { appearance: "photo-synthetic-07" });
+  assert.deepEqual(decodePartyAppearanceFrame(encodePartyAppearanceFrame(undefined)), {
+    appearance: PARTY_APPEARANCE_FLUBBER,
+  });
+  assert.equal(decodePartyAppearanceFrame(JSON.stringify({
+    protocol: PARTY_APPEARANCE_PROTOCOL,
+    version: 1,
+    appearance: "javascript:alert(1)",
+  })), undefined);
+  assert.equal(decodePartyAppearanceFrame("x".repeat(300)), undefined);
+
+  const oldScene = JSON.stringify({
+    protocol: PARTY_SCENE_PROTOCOL,
+    version: 1,
+    partyId: "old-party",
+    sequence: 1,
+    participants: [
+      { streamId: "old-host", label: "Host", currentX: 0, currentY: 0, viewportX: 0.5, viewportY: 0.5, size: 0.2, host: true },
+    ],
+  });
+  assert.equal(decodePartySceneFrame(oldScene).participants[0].appearance, PARTY_APPEARANCE_FLUBBER);
+});
+
+test("an invited guest can change only its presentation token over the duplex channel", async () => {
+  const source = { streamId: "aft_flubber_portrait", label: "Portrait · Live FLUBBER" };
+  let receiver;
+  const party = new FlubberParty({
+    discoveryFactory: (options) => new FakeReceiver(options, [source]),
+    receiverFactory: (options) => (receiver = new FakeReceiver(options, [source])),
+  });
+  await party.startDiscovery({ hostName: "Host" });
+  await party.invite(source.streamId);
+  assert.equal(party.snapshot().guests[0].appearance, PARTY_APPEARANCE_FLUBBER);
+  receiver.dispatchEvent(eventWith("message", {
+    streamId: source.streamId,
+    data: encodePartyAppearanceFrame("photo-synthetic-04"),
+  }));
+  assert.equal(party.snapshot().guests[0].appearance, "photo-synthetic-04");
+  receiver.dispatchEvent(eventWith("message", { streamId: source.streamId, data: "not-json" }));
+  assert.equal(party.snapshot().guests[0].appearance, "photo-synthetic-04");
+  await party.stop();
 });
 
 test("a party relays the complete shared scene back to every invited broadcaster", async () => {

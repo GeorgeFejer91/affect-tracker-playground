@@ -15,7 +15,7 @@
         }
       }
     </script>
-    <link rel="stylesheet" href="./styles.css?v=face-engines-1-main-2-screen-calibration-rim-2-mobile-party-camera-1-collaboration-9-retro-2-phone-preview-1-face-tab-1-matrix21-1-phone-face-switcher-1-photo-packs-1-party-qr-1">
+    <link rel="stylesheet" href="./styles.css?v=face-engines-1-main-2-screen-calibration-rim-2-mobile-party-camera-1-collaboration-9-retro-2-phone-preview-1-face-tab-1-matrix21-1-phone-face-switcher-1-photo-packs-1-party-qr-1-party-character-1">
   </head>
   <body>
     <main id="stage" aria-label="Interactive affect tracker">
@@ -116,6 +116,11 @@
                   <h2 id="mobile-direct-title">Flubber</h2>
                 </div>
                 <button id="mobile-open-settings" type="button" aria-label="Open Affect Tracker settings">Settings</button>
+                <label id="mobile-party-appearance-field" class="mobile-party-appearance-field" hidden>
+                  <span class="mobile-face-engine-label">Party character</span>
+                  <select id="mobile-party-appearance" aria-label="Party character" aria-describedby="mobile-party-appearance-note"></select>
+                </label>
+                <p id="mobile-party-appearance-note" class="mobile-party-appearance-note" hidden>Synthetic portrait styling is presentation-only and does not establish anyone’s identity or affect.</p>
                 <div id="mobile-face-controls" class="mobile-face-controls" hidden>
                   <label id="mobile-face-engine-field" class="mobile-face-engine-field">
                     <span class="mobile-face-engine-label">Face</span>
@@ -140,6 +145,8 @@
                   id="mobile-main-affect-face"
                   class="mobile-main-affect-face"
                   role="img"
+                  tabindex="-1"
+                  aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
                   aria-label="Detailed affect face at neutral."
                   hidden
                 >
@@ -174,7 +181,7 @@
                   <path id="mobile-direct-outline-path" class="shape-outline"></path>
                   <circle class="center-dot" cx="0" cy="0" r="0.025"></circle>
                 </svg>
-                <span class="mobile-flubber-drag-hint" aria-hidden="true">Drag Flubber to move it on connected screens</span>
+                <span id="mobile-flubber-drag-hint" class="mobile-flubber-drag-hint" aria-hidden="true">Drag Flubber to move it on connected screens</span>
               </div>
               <div class="mobile-direct-values" aria-live="off">
                 <span>Valence <output id="mobile-direct-valence-output">+0.000</output></span>
@@ -1003,6 +1010,6 @@
     </main>
 
     <script src="./vendor/vdoninja/1.5.5/vdoninja-sdk.min.js"></script>
-    <script type="module" src="./src/app.js?v=face-engines-1-main-2-screen-calibration-module-4-mobile-party-camera-1-collaboration-10-retro-2-phone-preview-1-face-tab-1-matrix21-1-phone-face-switcher-1-friendly-eyes-1-photo-packs-2-affec-guided-3-party-qr-1"></script>
+    <script type="module" src="./src/app.js?v=face-engines-1-main-2-screen-calibration-module-4-mobile-party-camera-1-collaboration-11-retro-2-phone-preview-1-face-tab-1-matrix21-1-phone-face-switcher-1-friendly-eyes-1-photo-packs-2-affec-guided-3-party-qr-1-party-character-1"></script>
   </body>
 </html>

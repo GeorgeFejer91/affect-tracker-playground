@@ -432,7 +432,11 @@ async function invokeWithFeedback(operation, successMessage) {
 
 async function initialize() {
   await initializeFacePhotoPackControl();
-  partyController = createDesktopPartyController({ announce });
+  partyController = createDesktopPartyController({
+    announce,
+    facePhotoPackCatalog,
+    resolveFacePhotoPackUrl: resolveDesktopFacePhotoPackAtlasUrl,
+  });
   fillForm(await nativeApi.getSettings());
   renderSnapshot(await nativeApi.getSnapshot());
   await nativeApi.onSnapshot(renderSnapshot);

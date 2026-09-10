@@ -1,5 +1,5 @@
 import { clamp } from "./math.js";
-import { createFlubberBroadcaster, createFlubberReceiver } from "./flubber-remote.js?v=collaboration-4";
+import { createFlubberBroadcaster, createFlubberReceiver } from "./flubber-remote.js?v=collaboration-5";
 
 export const UNIVERSE_ROOM = "affect_tracker_universe_v1";
 export const UNIVERSE_STREAM_PREFIX = "aft_universe_";
@@ -11,6 +11,12 @@ export const PARTY_SCENE_VERSION = 1;
 export const PARTY_SCENE_MAX_BYTES = 8_192;
 export const PARTY_SCENE_MAX_HZ = 30;
 export const PARTY_SCENE_HEARTBEAT_MS = 250;
+export const PARTY_APPEARANCE_PROTOCOL = "affect-tracker-party-appearance";
+export const PARTY_APPEARANCE_VERSION = 1;
+export const PARTY_APPEARANCE_MAX_BYTES = 256;
+export const PARTY_APPEARANCE_FLUBBER = "flubber";
+
+const PARTY_PORTRAIT_PATTERN = /^(?:photo-reference-v3|photo-synthetic-[0-9]{2})$/;
 
 const IDLE_PHASES = new Set(["idle", "error"]);
 
@@ -30,6 +36,37 @@ function boundedPartyText(value, maxLength) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLength);
+}
+
+export function normalizePartyAppearance(value) {
+  const appearance = boundedPartyText(value, 80);
+  return appearance === PARTY_APPEARANCE_FLUBBER || PARTY_PORTRAIT_PATTERN.test(appearance)
+    ? appearance
+    : PARTY_APPEARANCE_FLUBBER;
+}
+
+export function encodePartyAppearanceFrame(appearance) {
+  const frame = JSON.stringify({
+    protocol: PARTY_APPEARANCE_PROTOCOL,
+    version: PARTY_APPEARANCE_VERSION,
+    appearance: normalizePartyAppearance(appearance),
+  });
+  if (new TextEncoder().encode(frame).byteLength > PARTY_APPEARANCE_MAX_BYTES) {
+    throw new TypeError(`A party appearance cannot exceed ${PARTY_APPEARANCE_MAX_BYTES} UTF-8 bytes.`);
+  }
+  return frame;
+}
+
+export function decodePartyAppearanceFrame(value) {
+  if (typeof value !== "string" || new TextEncoder().encode(value).byteLength > PARTY_APPEARANCE_MAX_BYTES) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed?.protocol !== PARTY_APPEARANCE_PROTOCOL || parsed?.version !== PARTY_APPEARANCE_VERSION) return undefined;
+    if (normalizePartyAppearance(parsed.appearance) !== parsed.appearance) return undefined;
+    return Object.freeze({ appearance: parsed.appearance });
+  } catch {
+    return undefined;
+  }
 }
 
 function normalizePartySceneParticipant(value) {
@@ -53,6 +90,7 @@ function normalizePartySceneParticipant(value) {
     size: clamp(size, 0.04, 1),
     stale: value?.stale === true,
     host: value?.host === true,
+    appearance: normalizePartyAppearance(value?.appearance),
   };
 }
 
@@ -632,6 +670,7 @@ export class FlubberParty extends EventTarget {
       guests: Array.from(this.guests, ([streamId, guest]) => ({
         streamId,
         label: guest.label,
+        appearance: guest.appearance,
         ...guest.receiver.snapshot(),
       })),
       maxGuests: this.maxGuests,
@@ -690,16 +729,24 @@ export class FlubberParty extends EventTarget {
     const source = this.discovery.snapshot().sources.find((item) => item.streamId === streamId);
     if (!source) throw new Error("That FLUBBER signal is no longer visible on radar.");
     const receiver = this.receiverFactory({ autoSelect: false, receiverLabel: "Affect Tracker party guest" });
-    const guest = { label: source.label, receiver };
+    const guest = { label: source.label, appearance: PARTY_APPEARANCE_FLUBBER, receiver };
     this.guests.set(streamId, guest);
     const forward = () => this.emitState();
     const forwardFrame = () => {
       this.dispatchEvent(detailEvent("frame", this.snapshot()));
     };
+    const acceptAppearance = (event) => {
+      const frame = decodePartyAppearanceFrame(event.detail?.data);
+      if (!frame || frame.appearance === guest.appearance) return;
+      guest.appearance = frame.appearance;
+      this.emitState();
+    };
     guest.forward = forward;
     guest.forwardFrame = forwardFrame;
+    guest.acceptAppearance = acceptAppearance;
     receiver.addEventListener("statechange", forward);
     receiver.addEventListener("frame", forwardFrame);
+    receiver.addEventListener("message", acceptAppearance);
     try {
       await receiver.startDiscovery();
       await receiver.selectSource(streamId);
@@ -717,6 +764,7 @@ export class FlubberParty extends EventTarget {
     this.guests.delete(streamId);
     guest.receiver.removeEventListener("statechange", guest.forward);
     guest.receiver.removeEventListener("frame", guest.forwardFrame);
+    guest.receiver.removeEventListener("message", guest.acceptAppearance);
     await guest.receiver.stop();
     this.emitState();
     return this.snapshot();
@@ -728,6 +776,7 @@ export class FlubberParty extends EventTarget {
     for (const guest of guests) {
       guest.receiver.removeEventListener("statechange", guest.forward);
       guest.receiver.removeEventListener("frame", guest.forwardFrame);
+      guest.receiver.removeEventListener("message", guest.acceptAppearance);
     }
     await Promise.all([this.discovery.stop(), ...guests.map((guest) => guest.receiver.stop())]);
     this.partyId = "";
