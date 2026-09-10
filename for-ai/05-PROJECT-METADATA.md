@@ -10,7 +10,7 @@
 - Origin attribution: [`afourcade/AffectTracker`](https://github.com/afourcade/AffectTracker)
 - Canonical Windows working clone: `C:\Users\Georgeous\Documents\GitHub\affect-tracker-playground`
 
-This repository is the frozen feature-rich lineage. The exact reproducibility tree is bound by `checkpoint-2026-09-03-feature-rich`; `main` differs only by repository-relocation metadata and URL updates. Active minimal research-tool development belongs to [`affect-tracker-research`](https://github.com/GeorgeFejer91/affect-tracker-research).
+This repository is the preserved feature-rich lineage. The exact pre-split reproducibility baseline remains bound by `checkpoint-2026-09-03-feature-rich`. `main` additionally contains the repository-relocation metadata and the deliberately restored local Photoatlas work: the 21×21 atlas path, one original plus eight fictional synthetic portrait presets, and the separately disclosed AFFEC-guided comparison. Active minimal research-tool development belongs to [`affect-tracker-research`](https://github.com/GeorgeFejer91/affect-tracker-research).
 
 The Git repository root is the central project folder. Do not create a second independent "master" copy. On another machine or after a workspace move, discover the canonical local root with `git rev-parse --show-toplevel`; the absolute Windows path above is informational, not a portable configuration value.
 

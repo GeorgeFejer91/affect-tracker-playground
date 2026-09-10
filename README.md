@@ -1,6 +1,6 @@
 # Affect Tracker Playground: Pages + Desktop + WebXR + Native Quest
 
-> **Frozen feature-rich playground.** This repository preserves the experimental multi-surface application at the annotated `checkpoint-2026-09-03-feature-rich` reproducibility checkpoint. Active research-tool development continues in [`affect-tracker-research`](https://github.com/GeorgeFejer91/affect-tracker-research). No research-readiness, physical-device, or cross-platform qualification claim is attached to this snapshot.
+> **Preserved feature-rich playground.** The annotated `checkpoint-2026-09-03-feature-rich` tag remains the reproducibility baseline. `main` additionally carries the repository relocation and the deliberately restored, locally packaged Photoatlas portrait catalog. Active minimal research-tool development continues in [`affect-tracker-research`](https://github.com/GeorgeFejer91/affect-tracker-research). No research-readiness, physical-device, or cross-platform qualification claim is attached to the playground.
 
 The repository currently contains four Affect Tracker delivery surfaces inspired by [AffectTracker](https://github.com/afourcade/AffectTracker):
 
