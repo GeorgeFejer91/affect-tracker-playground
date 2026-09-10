@@ -36,13 +36,28 @@ Source license and credits:
 - https://github.com/ibrews/VitruvianGodot/blob/bdecdcd537b4031fdd0fb299b7e4f93f084fffa0/LICENSE
 - https://github.com/ibrews/VitruvianGodot/blob/bdecdcd537b4031fdd0fb299b7e4f93f084fffa0/NOTICE.md
 
-## AFFEC empirical aggregate calibration
+## AFFEC aggregate evidence and authored bindings
 
-`site/src/face-affec.js` contains project-computed counts, means, and standard
-deviations for AFFEC's perceived-emotion valence/arousal fields across all
-5,807 valid trials in AFFEC Multimodal Dataset core v0.1. Ratings were
-normalized from the published 1–9 scale with `(rating - 5) / 4`. The category
-prototype morphs and continuous RBF interpolation are project-authored.
+`affec-perceived-va-evidence-v1.json` contains project-computed counts, means,
+and sample standard deviations for AFFEC's perceived-emotion valence/arousal
+fields across all 5,807 valid observations in AFFEC Multimodal Dataset core
+v0.1. Ratings were normalized from the published 1–9 scale with
+`(rating - 5) / 4`. The artifact contains dataset-derived aggregates only.
+`scripts/build-affec-perceived-va-calibration.py` reproduces it from the exact
+official `core.zip`: 5,645,457 bytes, MD5
+`7157e9bedacf58f42692688fb20b57b1`, SHA-256
+`f5b71a3360a21e05d01f92172ea52bbcc6bb4a763f181da10b8e63af2faf7e99`.
+
+`affec-photoatlas-authoring-binding-v1.json` separately classifies the six
+category-to-portrait correspondences, Gaussian transfer, sharpening, and
+gates as project-authored. The runtime uses those compiled constants without
+fetching either provenance artifact. It keeps tracker `currentX/currentY`
+unchanged and uses separate `atlasX/atlasY` only to sample the selected local
+atlas. AFFEC supports the aggregate perceived category locations; it does not
+validate the portrait mapping, transfer surface, nine source anchors, 441
+derived cells, selected fictional identity, emotion recognition, demographic
+inference, or diagnosis. The separate Direct-grid Photoatlas remains available
+as an authored comparison.
 
 Source: [AFFEC Zenodo record 14794876](https://zenodo.org/records/14794876)
 and the [AFFEC devkit repository](https://github.com/itubrainlab/AFFEC).
@@ -51,8 +66,9 @@ accompanying repository currently describes the dataset files as **CC0**. This
 project follows the more conservative
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) attribution path for
 the redistributed aggregate statistics and identifies the transformation
-above. No AFFEC image, audio, video, participant record, or trial-level row is
-shipped or loaded by the application.
+above. No AFFEC image, audio, video, participant identifier, demographic
+field, stimulus path, or trial-level row is shipped or loaded by the
+application.
 
 ## MediaPipe build-time coefficient extraction
 
@@ -76,21 +92,110 @@ expression atlas generated for this application. It depicts a fictional
 person and contains the nine source anchors retained for provenance and for
 the separate MediaPipe-blendshape calibration described above.
 
-`affect-face-atlas-v2.webp` is the 11 by 11 Canvas compatibility atlas used at
-runtime. Its 121 cells were generated locally from those nine unchanged
+`affect-face-atlas-v3.webp` is the 21 by 21 Canvas compatibility atlas used at
+runtime. Its 441 cells were generated locally from those nine unchanged
 anchors by `scripts/build-dense-photo-atlas.py`. During this offline-only
 asset step, MediaPipe Face Mesh 0.10.8 supplied corresponding semantic
 landmarks; the project script interpolated a target landmark mesh, applied
 piecewise affine warps, and combined the four neighboring cells in
 premultiplied alpha.
-The adjacent JSON records both asset hashes, tool versions, a 224 px cell
+The adjacent JSON records both asset hashes, tool versions, a 160 px cell
 size, and the mesh size. No dataset face, new identity, or independently
 labelled affect observation is introduced by these derived in-between cells.
 No MediaPipe code or model is included in or executed by the application.
 
+The earlier 11 by 11 v2 atlas remains checked in as a reproducibility and
+rollback artifact but is not requested by the current renderer.
+
+`affect-face-atlas-v3-qa.json` is reproduced by
+`scripts/verify-dense-photo-atlas.py`. It checks hashes, all 441 face
+detections, landmark agreement and neighbor continuity, mesh topology, and
+the nine source-anchor pixels. These are deterministic rendering checks only;
+they do not establish perceived or validated valence/arousal.
+
 Both atlases are project-owned, were not copied from a human photograph or a
 third-party face-expression dataset, and are distributed under this
 repository's [BSD 3-Clause License](../../../LICENSE).
+
+## Separately packaged synthetic portrait presets
+
+`photo-atlas-packs-v1.json` is the closed-world catalog for the original
+portrait and eight optional, separately stored synthetic portrait presets.
+The browser loads only the selected local WebP, so adding presets does not add
+their bytes to the initial page or require a runtime model, camera, remote
+service, or CDN. Public labels remain the neutral `Original portrait` and
+`Synthetic preset 02` through `Synthetic preset 09` names.
+
+The first seven synthetic presets begin as project-owned 3 by 3 fictional
+portrait sheets in `packs/<neutral-id>/anchors-v1.png`. Experimental
+`photo-synthetic-08` instead begins as a newly generated 5 by 5 sheet with 25
+project-owned image-to-image anchors. Internal `presentationStyle`,
+`regionalDesignInspirations`, and `skinToneAudit` fields record creator-prompt
+provenance and an explicitly unvalidated audit descriptor. They are not a
+demographic taxonomy or a claim or inference about sex, gender identity,
+pronouns, race, ethnicity, ancestry, nationality, culture, or personal
+identity. They also do not make the anchors or interpolated nodes validated
+affect observations, emotion recognition, or diagnosis.
+
+The supplied PNG anchor sheets use an RGB black matte rather than source
+alpha. `scripts/build-photo-atlas-pack.py` deterministically derives soft
+alpha independently in each source cell: near-black pixels are candidates,
+only 8-connected components that reach that cell's border are treated as
+background, maximum RGB intensity is mapped through a smoothstep from 8 to 24,
+and partially transparent pixels preserve their straight source RGB. The
+algorithm deliberately does not divide RGB by inferred alpha, because doing so
+amplifies dark edge noise into colored or white fringes. Interior dark facial
+features stay opaque. Truly black foreground detail that touches a cell border
+can remain inseparable from the matte, so visual contact-sheet review is still
+required.
+
+The pack builder delegates its 21 by 21 landmark warp to the unchanged v3
+builder. Each colocated metadata and QA file binds the source, prepared source,
+derived atlas, exact tool hashes, generation record, engineering checks, and
+evidence boundaries. `scripts/verify-photo-atlas-pack.py` reproduces each pack;
+`scripts/verify-photo-atlas-catalog.py` additionally fails closed on unsafe
+paths, stale hashes, unavailable defaults, non-neutral public names, or QA that
+has not passed. These are deterministic rendering checks, not demographic,
+representational, or perceived-affect validation.
+
+### `photo-synthetic-08` 5 by 5 authoring experiment
+
+`packs/photo-synthetic-08/authoring-v1.json` records the complete offline
+image-to-image authoring request, source hash, generated-sheet hash, service
+execution record, and claim boundary. The project-owned fictional original
+portrait atlas, itself derived from the earlier 3 by 3 reference layout, was
+supplied only as the identity and expression-layout reference. The resulting
+`anchors-v1.png` contains 25 newly generated anchors at the 25 target positions
+of a 5-valence by 5-arousal authoring lattice. They include 16 additional target
+positions beyond the earlier 3 by 3 lattice. Because all
+25 cells were newly generated, the nine corresponding reference positions are
+not claimed to preserve the earlier pixels byte-for-byte.
+
+The 5 by 5 layout was informed only by Namba et al.'s published description of
+the [RIKEN facial-expression database](https://doi.org/10.1038/s41598-023-49209-8),
+whose participants recalled one individualized event for each combination of
+five valence and five arousal levels. The project did not acquire, inspect,
+train on, copy, transform, or redistribute RIKEN participant media or
+annotations; database access requires an end-user license agreement. RIKEN is
+therefore a grid-design lesson, not the expression or pixel source and not
+evidence that this generated portrait is perceived at the requested
+coordinates.
+
+The dense-correspondence and VA-path work reported for 4DFAB is likewise a
+methodological blueprint only. No 4DFAB mesh, image, annotation, mean
+deformation, trained model, or code is present in the source sheet, derived
+atlas, or application. AFEW-VA, Aff-Wild2, AffectNet, DISFA/DISFA+, BP4D/BP4D+,
+and other access-controlled or redistribution-restricted participant datasets
+were reviewed and rejected as public GitHub Pages asset sources; none of their
+media, annotations, models, or derived data was used.
+
+The 25 anchors and the 441 derived runtime nodes are project-owned synthetic
+presentation assets distributed under this repository's BSD 3-Clause License.
+Engineering checks can establish file integrity, face detectability, topology,
+and transition continuity, but they cannot establish perceived valence or
+arousal. Blinded human ratings of the anchors, intermediate nodes, and
+transition paths remain required before this pack or its mapping may be called
+perceptually validated.
 
 ## Local rendering libraries
 

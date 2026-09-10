@@ -1,5 +1,16 @@
-export const FACE_PHOTO_GRID_SIZE = 11;
+import { mapAffecPhotoAtlasCoordinates } from "./face-affec.js?v=affec-guided-photo-map-1";
+
+export const FACE_PHOTO_GRID_SIZE = 21;
 const DEFAULT_CANVAS_SIZE = 320;
+
+export const FACE_PHOTO_PROFILES = Object.freeze([
+  "geometric-grid",
+  "affec-guided",
+]);
+
+export function normalizeFacePhotoProfile(value) {
+  return FACE_PHOTO_PROFILES.includes(value) ? value : FACE_PHOTO_PROFILES[0];
+}
 
 const clamp = (value, minimum, maximum, fallback = minimum) => {
   const finite = Number.isFinite(value) ? value : fallback;
@@ -9,7 +20,7 @@ const clamp = (value, minimum, maximum, fallback = minimum) => {
 const freezeTile = (column, row, weight) => Object.freeze({ column, row, weight });
 
 export const FACE_PHOTO_ATLAS_URL = new URL(
-  "../assets/affect-face/affect-face-atlas-v2.webp",
+  "../assets/affect-face/affect-face-atlas-v3.webp",
   import.meta.url,
 ).href;
 
@@ -49,16 +60,20 @@ function snapGridPosition(position) {
 }
 
 /**
- * Return exact bilinear atlas weights. The 11 x 11 columns run valence -1 to
- * +1 in 0.2 steps; rows run arousal +1 to -1. Runtime interpolation between
+ * Return exact bilinear atlas weights. The 21 x 21 columns run valence -1 to
+ * +1 in 0.1 steps; rows run arousal +1 to -1. Runtime interpolation between
  * adjacent cells remains continuous rather than snapping to those nodes.
  */
-export function computeFacePhotoBlend(snapshot = {}) {
+export function computeFacePhotoBlend(snapshot = {}, profile = FACE_PHOTO_PROFILES[0]) {
   const currentX = clamp(snapshot?.currentX, -1, 1, 0);
   const currentY = clamp(snapshot?.currentY, -1, 1, 0);
+  const normalizedProfile = normalizeFacePhotoProfile(profile);
+  const mapped = normalizedProfile === "affec-guided"
+    ? mapAffecPhotoAtlasCoordinates({ currentX, currentY })
+    : { atlasX: currentX, atlasY: currentY, empiricalBlend: 0 };
   const coordinateScale = (FACE_PHOTO_GRID_SIZE - 1) * 0.5;
-  const columnPosition = snapGridPosition((currentX + 1) * coordinateScale);
-  const rowPosition = snapGridPosition((1 - currentY) * coordinateScale);
+  const columnPosition = snapGridPosition((mapped.atlasX + 1) * coordinateScale);
+  const rowPosition = snapGridPosition((1 - mapped.atlasY) * coordinateScale);
   const columns = axisBlend(columnPosition);
   const rows = axisBlend(rowPosition);
   const tiles = [];
@@ -75,6 +90,10 @@ export function computeFacePhotoBlend(snapshot = {}) {
   return Object.freeze({
     currentX,
     currentY,
+    atlasX: mapped.atlasX,
+    atlasY: mapped.atlasY,
+    empiricalBlend: mapped.empiricalBlend,
+    profile: normalizedProfile,
     columnPosition,
     rowPosition,
     tiles: Object.freeze(tiles),
@@ -124,10 +143,11 @@ export function buildFacePhotoState(
   reducedMotion = false,
   atlas = {},
   viewport = {},
+  profile = FACE_PHOTO_PROFILES[0],
 ) {
   return Object.freeze({
     frame: normalizeFacePhotoFrame(snapshot, reducedMotion),
-    blend: computeFacePhotoBlend(snapshot),
+    blend: computeFacePhotoBlend(snapshot, profile),
     layout: computeFacePhotoLayout(atlas, viewport),
   });
 }
@@ -196,6 +216,7 @@ export function createFacePhotoRenderer(root, options = {}) {
     2,
   );
   let atlasUrl;
+  let profile = normalizeFacePhotoProfile(options.profile);
   try {
     atlasUrl = resolveFacePhotoAtlasUrl(options.atlasUrl);
   } catch (error) {
@@ -203,6 +224,7 @@ export function createFacePhotoRenderer(root, options = {}) {
   }
 
   let image = null;
+  let imageGeneration = 0;
   let context = null;
   let loadState = "idle";
   let activeMode = "fallback";
@@ -234,8 +256,12 @@ export function createFacePhotoRenderer(root, options = {}) {
   };
   const photoResult = {
     mode: "photo",
+    profile,
     currentX: 0,
     currentY: 0,
+    atlasX: 0,
+    atlasY: 0,
+    empiricalBlend: 0,
     overlayOpacity: 1,
     tileCount: 0,
   };
@@ -318,7 +344,10 @@ export function createFacePhotoRenderer(root, options = {}) {
       const currentX = clamp(snapshot?.currentX, -1, 1, 0);
       const currentY = clamp(snapshot?.currentY, -1, 1, 0);
       const overlayOpacity = clamp(snapshot?.overlayOpacity, 0, 1, 1);
-      fillBlendScratch(currentX, currentY, blendScratch);
+      const mapped = profile === "affec-guided"
+        ? mapAffecPhotoAtlasCoordinates({ currentX, currentY })
+        : { atlasX: currentX, atlasY: currentY, empiricalBlend: 0 };
+      fillBlendScratch(mapped.atlasX, mapped.atlasY, blendScratch);
 
       context.setTransform?.(dpr, 0, 0, dpr, 0, 0);
       context.clearRect(0, 0, cssWidth, cssHeight);
@@ -360,6 +389,10 @@ export function createFacePhotoRenderer(root, options = {}) {
 
       photoResult.currentX = currentX;
       photoResult.currentY = currentY;
+      photoResult.atlasX = mapped.atlasX;
+      photoResult.atlasY = mapped.atlasY;
+      photoResult.empiricalBlend = mapped.empiricalBlend;
+      photoResult.profile = profile;
       photoResult.overlayOpacity = overlayOpacity;
       lastError = null;
       setMode("photo");
@@ -370,9 +403,14 @@ export function createFacePhotoRenderer(root, options = {}) {
     }
   };
 
-  const atlasLoaded = () => {
-    if (destroyed || loadState !== "loading") return;
-    const dimensions = imageDimensions(image);
+  const atlasLoaded = (candidate, generation) => {
+    if (
+      destroyed
+      || loadState !== "loading"
+      || candidate !== image
+      || generation !== imageGeneration
+    ) return;
+    const dimensions = imageDimensions(candidate);
     if (!(dimensions.width > 0) || !(dimensions.height > 0)) {
       fail(null, "The affect face atlas loaded without usable dimensions.");
       return;
@@ -401,8 +439,13 @@ export function createFacePhotoRenderer(root, options = {}) {
     }
   };
 
-  const atlasFailed = (event) => {
-    if (destroyed || loadState !== "loading") return;
+  const atlasFailed = (candidate, generation, event) => {
+    if (
+      destroyed
+      || loadState !== "loading"
+      || candidate !== image
+      || generation !== imageGeneration
+    ) return;
     fail(event?.error, "The local affect face atlas could not be loaded.");
   };
 
@@ -448,19 +491,28 @@ export function createFacePhotoRenderer(root, options = {}) {
       return;
     }
     try {
-      image = imageFactory(atlasUrl);
-      if (!image) throw new TypeError("The image factory returned no image.");
-      image.onload = atlasLoaded;
-      image.onerror = atlasFailed;
+      const generation = imageGeneration + 1;
+      const candidate = imageFactory(atlasUrl);
+      if (!candidate) throw new TypeError("The image factory returned no image.");
+      imageGeneration = generation;
+      image = candidate;
+      candidate.onload = () => atlasLoaded(candidate, generation);
+      candidate.onerror = (event) => atlasFailed(candidate, generation, event);
       try {
-        image.decoding = "async";
+        candidate.decoding = "async";
       } catch {
         // Some image adapters expose decoding as read-only.
       }
-      image.src = atlasUrl;
+      candidate.src = atlasUrl;
       queueMicrotask(() => {
-        if (loadState === "loading" && image?.complete && imageDimensions(image).width > 0) {
-          atlasLoaded();
+        if (
+          loadState === "loading"
+          && candidate === image
+          && generation === imageGeneration
+          && candidate.complete
+          && imageDimensions(candidate).width > 0
+        ) {
+          atlasLoaded(candidate, generation);
         }
       });
     } catch (error) {
@@ -482,9 +534,48 @@ export function createFacePhotoRenderer(root, options = {}) {
     resizeDirty = true;
     return canvas ? measure() : Object.freeze({ width: cssWidth, height: cssHeight, dpr: 1 });
   };
+  render.setAtlasUrl = (value) => {
+    if (destroyed) return atlasUrl;
+    let nextUrl;
+    try {
+      nextUrl = resolveFacePhotoAtlasUrl(value);
+    } catch {
+      return atlasUrl;
+    }
+    if (nextUrl === atlasUrl) return atlasUrl;
+
+    imageGeneration += 1;
+    if (image) {
+      image.onload = null;
+      image.onerror = null;
+    }
+    image = null;
+    atlasUrl = nextUrl;
+    loadState = "idle";
+    lastError = null;
+    sourceCellWidth = 0;
+    sourceCellHeight = 0;
+    sourceSize = 0;
+    sourceInsetX = 0;
+    sourceInsetY = 0;
+    context?.clearRect?.(0, 0, cssWidth, cssHeight);
+    setMode("fallback");
+    return atlasUrl;
+  };
+  render.setProfile = (value) => {
+    const nextProfile = normalizeFacePhotoProfile(value);
+    if (nextProfile === profile) return profile;
+    profile = nextProfile;
+    if (root?.dataset) root.dataset.facePhotoProfile = profile;
+    if (hasLastCall && loadState === "ready") {
+      render(lastCall.snapshot, lastCall.reducedMotion, lastCall.presentationColor);
+    }
+    return profile;
+  };
   render.destroy = () => {
     if (destroyed) return;
     destroyed = true;
+    imageGeneration += 1;
     resizeObserver?.disconnect();
     globalThis.removeEventListener?.("resize", onResize);
     canvas?.removeEventListener?.("contextlost", onContextLost);
@@ -507,8 +598,10 @@ export function createFacePhotoRenderer(root, options = {}) {
     error: { enumerable: true, get: () => lastError },
     loadState: { enumerable: true, get: () => loadState },
     atlasUrl: { enumerable: true, get: () => atlasUrl },
+    profile: { enumerable: true, get: () => profile },
   });
 
+  if (root?.dataset) root.dataset.facePhotoProfile = profile;
   setMode("fallback");
   return render;
 }
