@@ -197,7 +197,10 @@ export function createQrMatrix(text) {
   return Object.freeze(modules.map((row) => Object.freeze(row)));
 }
 
-export function renderQrCode(host, text, { document = globalThis.document } = {}) {
+export function renderQrCode(host, text, {
+  document = globalThis.document,
+  ariaLabel = "One-time QR invitation for the Affect Tracker remote controller",
+} = {}) {
   if (!host || !document?.createElementNS) throw new TypeError("A QR host and DOM document are required.");
   const matrix = createQrMatrix(text);
   const quietZone = 4;
@@ -205,7 +208,7 @@ export function renderQrCode(host, text, { document = globalThis.document } = {}
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", `0 0 ${extent} ${extent}`);
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "One-time QR invitation for the Affect Tracker remote controller");
+  svg.setAttribute("aria-label", ariaLabel);
   svg.setAttribute("shape-rendering", "crispEdges");
   const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   background.setAttribute("width", String(extent));

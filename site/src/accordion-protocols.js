@@ -39,7 +39,7 @@ export const ACCORDION_PROTOCOLS = Object.freeze({
     stateKey: "groundControlPanelOpen",
     panelId: "ground-control-panel",
     domainModule: "ground-control.js",
-    responsibilities: Object.freeze(["portable-files", "settings-snapshot-transport", "live-coordinate-orchestration"]),
+    responsibilities: Object.freeze(["portable-files", "settings-snapshot-transport", "live-coordinate-orchestration", "public-party-invitation"]),
   }),
 });
 

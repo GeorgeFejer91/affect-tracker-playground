@@ -117,6 +117,11 @@ import {
   partyBudVectorGeometry,
   partyFlubberPlacement,
 } from "./flubber-collaboration.js?v=collaboration-9";
+import {
+  FLUBBER_PARTY_GUEST_URL,
+  flubberPartyGuestInvitationRequested,
+} from "./party-invitation.js?v=party-qr-1";
+import { renderQrCode } from "./remote-study/qr-code.js?v=party-qr-1";
 import { createRetroSoundboard, retroCueForMessage, RETRO_THEME_ID } from "./retro-theme.js?v=retro-2";
 import {
   actionForBinding,
@@ -237,6 +242,7 @@ const elements = {
   groundUniverseListeners: document.querySelector("#ground-universe-listeners"),
   groundUniverseState: document.querySelector("#ground-universe-state"),
   groundPartyButton: document.querySelector("#ground-party-button"),
+  groundPartyQrButton: document.querySelector("#ground-party-qr-button"),
   groundPartyStatus: document.querySelector("#ground-party-status"),
   groundPartyRoster: document.querySelector("#ground-party-roster"),
   groundPartyGuests: document.querySelector("#ground-party-guests"),
@@ -247,6 +253,16 @@ const elements = {
   groundRadarSources: document.querySelector("#ground-radar-sources"),
   groundRadarClose: document.querySelector("#ground-radar-close"),
   groundRadarStop: document.querySelector("#ground-radar-stop"),
+  groundPartyQrDialog: document.querySelector("#ground-party-qr-dialog"),
+  groundPartyQrClose: document.querySelector("#ground-party-qr-close"),
+  groundPartyQrCode: document.querySelector("#ground-party-qr-code"),
+  groundPartyGuestLink: document.querySelector("#ground-party-guest-link"),
+  partyGuestDialog: document.querySelector("#party-guest-dialog"),
+  partyGuestForm: document.querySelector("#party-guest-form"),
+  partyGuestName: document.querySelector("#party-guest-name"),
+  partyGuestStatus: document.querySelector("#party-guest-status"),
+  partyGuestCancel: document.querySelector("#party-guest-cancel"),
+  partyGuestJoin: document.querySelector("#party-guest-join"),
   groundJsonReceived: document.querySelector("#ground-json-received"),
   groundJsonReceivedName: document.querySelector("#ground-json-received-name"),
   groundJsonReceivedShape: document.querySelector("#ground-json-received-shape"),
@@ -3287,7 +3303,10 @@ function acceptIncomingPartyScene(detail) {
   constrainAndRenderWidget();
   updateRemoteBroadcastUi();
   updatePartyScenePresentation();
-  if (changedParty) announce("You joined a shared FLUBBER party scene. Everyone in this party can now see the same participants.");
+  if (changedParty) {
+    showPartyGuestController();
+    announce("You joined a shared FLUBBER party scene. Drag your Flubber and use the 2D affect grid; everyone in this party can now see the same participants.");
+  }
 }
 
 function renderIncomingPartyScene(now = performance.now()) {
@@ -3568,6 +3587,46 @@ async function acquireBroadcastLatencyMode() {
   await acquireBroadcastWakeLock();
   updateRemoteBroadcastUi();
   updateUniverseUi();
+}
+
+async function startLiveFlubberBroadcast(sourceName) {
+  await acquireBroadcastLatencyMode();
+  try {
+    const started = await flubberBroadcaster.start({ sourceName });
+    recordEvent("remote-flubber", "remote-broadcast-start", started.sourceLabel, 1);
+    return started;
+  } catch (error) {
+    if (flubberBroadcaster.snapshot().phase !== "broadcasting") await releaseBroadcastLatencyMode();
+    throw error;
+  }
+}
+
+function openGroundPartyQr() {
+  elements.groundPartyGuestLink.href = FLUBBER_PARTY_GUEST_URL;
+  renderQrCode(elements.groundPartyQrCode, FLUBBER_PARTY_GUEST_URL, {
+    ariaLabel: "QR code for the public FLUBBER party guest join page",
+  });
+  if (!elements.groundPartyQrDialog.open) elements.groundPartyQrDialog.showModal();
+}
+
+function openPartyGuestInvitation() {
+  if (!flubberPartyGuestInvitationRequested()) return;
+  elements.partyGuestName.value = state.groundControlName;
+  elements.partyGuestStatus.textContent = "Nothing is broadcast until you press Join.";
+  elements.partyGuestStatus.classList.remove("is-error");
+  if (!elements.partyGuestDialog.open) elements.partyGuestDialog.showModal();
+  requestAnimationFrame(() => elements.partyGuestName.focus());
+}
+
+function showPartyGuestController() {
+  Object.assign(state, setAccordionProtocolOpen(state, "settings", true));
+  elements.panel.classList.remove("is-mobile-settings-open");
+  elements.faceFlubberPanel.classList.remove("is-mobile-settings-open");
+  updateAccordionPanelStates();
+  updateInputSourceControls();
+  applyPolarMappings();
+  updateExperimentSourceControls();
+  savePreferences();
 }
 
 function updatePictureInPictureSupport() {
@@ -4858,6 +4917,43 @@ function initializeEvents() {
     await startGroundRadar("party");
     recordEvent("ground-control", "party-start", "radar", 1);
   });
+  elements.groundPartyQrButton.addEventListener("click", openGroundPartyQr);
+  elements.groundPartyQrClose.addEventListener("click", () => elements.groundPartyQrDialog.close());
+  elements.groundPartyQrDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    elements.groundPartyQrDialog.close();
+  });
+  elements.partyGuestCancel.addEventListener("click", () => elements.partyGuestDialog.close());
+  elements.partyGuestDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    elements.partyGuestDialog.close();
+  });
+  elements.partyGuestForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    elements.partyGuestJoin.disabled = true;
+    elements.partyGuestStatus.classList.remove("is-error");
+    elements.partyGuestStatus.textContent = "Starting your public FLUBBER beacon…";
+    try {
+      if (currentOneWayRole() !== "idle" || universeLink.snapshot().enabled || flubberParty.snapshot().enabled) {
+        throw new Error("Stop the active Ground Control connection before joining as a party guest.");
+      }
+      const sourceName = normalizeGroundControlName(elements.partyGuestName.value);
+      state.groundControlName = sourceName;
+      elements.groundControlName.value = sourceName;
+      savePreferences();
+      const started = await startLiveFlubberBroadcast(sourceName);
+      showPartyGuestController();
+      elements.partyGuestDialog.close();
+      elements.mobileDirectFlubber.focus({ preventScroll: true });
+      announce(`${started.sourceLabel} is discoverable. Move it with the Flubber and 2D affect grid while the party host invites you.`);
+    } catch (error) {
+      elements.partyGuestStatus.textContent = error?.message ?? String(error);
+      elements.partyGuestStatus.classList.add("is-error");
+      elements.partyGuestName.focus();
+    } finally {
+      elements.partyGuestJoin.disabled = false;
+    }
+  });
   elements.groundPartyStopButton.addEventListener("click", async () => {
     const count = flubberParty.snapshot().guests.length;
     clearPartyBirthAnimation();
@@ -4906,13 +5002,10 @@ function initializeEvents() {
         announce("Remote Flubber broadcast stopped.");
       } else {
         const sourceName = requiredGroundControlName();
-        await acquireBroadcastLatencyMode();
-        const started = await flubberBroadcaster.start({ sourceName });
-        recordEvent("remote-flubber", "remote-broadcast-start", started.sourceLabel, 1);
+        const started = await startLiveFlubberBroadcast(sourceName);
         announce(`${started.sourceLabel} is broadcasting final Flubber coordinates.`);
       }
     } catch (error) {
-      if (flubberBroadcaster.snapshot().phase !== "broadcasting") await releaseBroadcastLatencyMode();
       announce(`Remote broadcast could not start: ${error?.message ?? String(error)}`);
     }
   });
@@ -5508,6 +5601,7 @@ function initialize() {
   updateLoggerDisplay();
   savePreferences();
   recordEvent("system", "session-start", "session", logger.sessionId);
+  openPartyGuestInvitation();
   scheduleAnimationFrame();
 }
 

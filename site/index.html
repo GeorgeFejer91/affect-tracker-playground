@@ -15,7 +15,7 @@
         }
       }
     </script>
-    <link rel="stylesheet" href="./styles.css?v=face-engines-1-main-2-screen-calibration-rim-2-mobile-party-camera-1-collaboration-8-retro-2-phone-preview-1-face-tab-1-matrix21-1-phone-face-switcher-1-photo-packs-1">
+    <link rel="stylesheet" href="./styles.css?v=face-engines-1-main-2-screen-calibration-rim-2-mobile-party-camera-1-collaboration-9-retro-2-phone-preview-1-face-tab-1-matrix21-1-phone-face-switcher-1-photo-packs-1-party-qr-1">
   </head>
   <body>
     <main id="stage" aria-label="Interactive affect tracker">
@@ -880,6 +880,10 @@
                 <svg class="ground-action-icon icon-party" viewBox="0 0 64 64" aria-hidden="true"><path class="party-orbit" d="M8 35c8-18 18-24 29-19 9 4 9 15 19 18"></path><circle class="party-flubber party-one" cx="16" cy="39" r="8"></circle><circle class="party-flubber party-two" cx="34" cy="24" r="9"></circle><circle class="party-flubber party-three" cx="50" cy="42" r="7"></circle></svg>
                 <span><strong>Invite a FLUBBER</strong><small id="ground-party-status">Party off</small></span>
               </button>
+              <button id="ground-party-qr-button" class="ground-action ground-party-qr-action" type="button">
+                <svg class="ground-action-icon icon-party-qr" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 8h18v18H8zM14 14h6v6h-6zM38 8h18v18H38zM44 14h6v6h-6zM8 38h18v18H8zM14 44h6v6h-6z"></path><path d="M36 36h8v8h-8zM48 36h8v8h-8zM36 48h8v8h-8zM48 48h8v8h-8z"></path></svg>
+                <span><strong>Display party QR</strong><small>Let guests name and beacon their FLUBBER</small></span>
+              </button>
             </div>
 
             <button id="flubber-remote-foreground-button" class="ground-restore-button" type="button" hidden>Restore low-latency foreground mode</button>
@@ -912,7 +916,7 @@
               <button id="ground-party-stop-button" type="button">Stop party and disconnect guests</button>
             </section>
 
-            <p class="ground-control-distinction"><strong>Snapshot vs stream:</strong> JSON is one frozen settings snapshot; Live FLUBBER is a connection that stays open for changing X/Y coordinates. Ordinary broadcast and scan are sender-or-receiver only. <strong>Synch with Universe</strong> is an explicit reciprocal exception where both people's full-scale X/Y inputs steer one shared Flubber; matching directions add up to the coordinate limits instead of being averaged. <strong>Invite a FLUBBER</strong> keeps each person's affect controls local while the host mirrors the complete Party scene to every invited broadcaster.</p>
+            <p class="ground-control-distinction"><strong>Snapshot vs stream:</strong> JSON is one frozen settings snapshot; Live FLUBBER is a connection that stays open for changing X/Y coordinates. Ordinary broadcast and scan are sender-or-receiver only. <strong>Synch with Universe</strong> is an explicit reciprocal exception where both people's full-scale X/Y inputs steer one shared Flubber; matching directions add up to the coordinate limits instead of being averaged. <strong>Invite a FLUBBER</strong> keeps each person's affect controls local while the host mirrors the complete Party scene to every invited broadcaster. The party QR opens this public page and asks each guest to name their FLUBBER; only pressing Join starts a discoverable beacon, and the host still chooses who enters.</p>
             <p class="experiment-privacy"><strong>Public experimental connection:</strong> pressing a Broadcast or Scan action connects to a public VDO.Ninja discovery room. Your chosen signal name is visible to room listeners; peers may learn this device's IP address; third-party signaling and STUN/TURN may be used; relay paths add latency; and the free service has no availability guarantee. Static JSON contains the complete portable settings object, including desktop LSL metadata. Live mode sends only final smoothed X/Y coordinates and normalized Flubber screen placement. If that signal is invited to a party, the same open channel also receives a bounded scene containing every party Flubber's public label, X/Y, normalized position, relative size, stale state, shared visual style, and animation phase so all connected screens can mirror it—never raw pointer trails, physiology, timestamps, CSV rows, or private participant identity.</p>
           </section>
         </div>
@@ -967,10 +971,38 @@
         </div>
       </dialog>
 
+      <dialog id="ground-party-qr-dialog" class="ground-party-qr-dialog" aria-labelledby="ground-party-qr-title" aria-describedby="ground-party-qr-instructions">
+        <div class="ground-party-qr-shell">
+          <header>
+            <div><span class="ground-control-kicker">F.L.U.B.B.E.R. party</span><h2 id="ground-party-qr-title">Scan to join the party</h2></div>
+            <button id="ground-party-qr-close" type="button" aria-label="Close party QR code">×</button>
+          </header>
+          <div id="ground-party-qr-code" class="ground-party-qr-code"></div>
+          <p id="ground-party-qr-instructions">Open the camera on a phone and scan this code. The guest names their FLUBBER, presses Join, and becomes visible in <strong>Invite a FLUBBER</strong>. You still choose who enters.</p>
+          <a id="ground-party-guest-link" class="ground-party-guest-link" href="https://georgefejer91.github.io/affect-tracker-playground/?party=join" target="_blank" rel="noopener">Open the guest join page</a>
+        </div>
+      </dialog>
+
+      <dialog id="party-guest-dialog" class="party-guest-dialog" aria-labelledby="party-guest-title" aria-describedby="party-guest-disclosure">
+        <form id="party-guest-form" class="party-guest-shell" method="dialog">
+          <span class="ground-control-kicker">F.L.U.B.B.E.R. party invitation</span>
+          <h2 id="party-guest-title">Name your FLUBBER</h2>
+          <p>Choose the public name the party host will see on their radar.</p>
+          <label for="party-guest-name">FLUBBER name</label>
+          <input id="party-guest-name" name="flubber-name" maxlength="64" autocomplete="off" required placeholder="e.g. Wobbly Comet">
+          <p id="party-guest-disclosure" class="party-guest-disclosure"><strong>Public experimental connection:</strong> Join uses VDO.Ninja signaling and may expose your chosen name and device IP to peers; third-party STUN/TURN may be used. No camera or microphone is requested. The beacon sends only final X/Y coordinates and normalized FLUBBER placement. The host must explicitly invite you before you enter their party scene. Never use a participant identifier.</p>
+          <p id="party-guest-status" class="party-guest-status" role="status" aria-live="polite">Nothing is broadcast until you press Join.</p>
+          <div class="party-guest-actions">
+            <button id="party-guest-cancel" type="button">Not now</button>
+            <button id="party-guest-join" type="submit">Join party</button>
+          </div>
+        </form>
+      </dialog>
+
       <p id="status-region" class="visually-hidden" aria-live="polite"></p>
     </main>
 
     <script src="./vendor/vdoninja/1.5.5/vdoninja-sdk.min.js"></script>
-    <script type="module" src="./src/app.js?v=face-engines-1-main-2-screen-calibration-module-4-mobile-party-camera-1-collaboration-9-retro-2-phone-preview-1-face-tab-1-matrix21-1-phone-face-switcher-1-friendly-eyes-1-photo-packs-2-affec-guided-3"></script>
+    <script type="module" src="./src/app.js?v=face-engines-1-main-2-screen-calibration-module-4-mobile-party-camera-1-collaboration-10-retro-2-phone-preview-1-face-tab-1-matrix21-1-phone-face-switcher-1-friendly-eyes-1-photo-packs-2-affec-guided-3-party-qr-1"></script>
   </body>
 </html>
